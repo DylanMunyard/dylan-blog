@@ -202,10 +202,7 @@ That's it, you're using Arch. Keep reading to install a display manager, so we c
 ## Graphical User Interface
 These steps configure GDM "The GNOME Display Manager", but there are other [options](https://wiki.archlinux.org/title/Display_manager#Graphical)
 
-!!! danger "Pacman errors"
-
-    For some reason when I ran this, I got an error that one of the dependencies (llvm-libs) could not be downloaded due to a 404.
-    To fix, I ran `pacman -Syyu` which synchronises the Pacman package database, then re-ran the installation of `gdm`
+`systemctl enable gdm && systemctl start gdm` will start GDM, and the graphical user interface now appears
 
 ![GUI.png](assets/images/archi-boi/arch_gdm_running.png)
 
@@ -246,6 +243,13 @@ Drop the `-cdrom` option to boot straight into Arch:
 `qemu-system-x86_64 -drive file=arch.cow,format=raw -m 4G -accel kvm -cpu host -smp 4`
 
 `-smp 4` supplies 4 CPU cores to the VM.
+
+## Troubleshooting
+
+!!! danger "Pacman errors"
+
+    Sometimes when installing through pacman I got an error that one of the dependencies (llvm-libs) could not be downloaded due to a 404.
+    To fix, I ran `pacman -Syyu` which synchronises the Pacman package database, then re-ran the installation of `gdm`
 
 ## Next steps
 Personally, I would recommend the following apps / changes:
