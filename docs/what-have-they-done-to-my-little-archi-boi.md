@@ -240,9 +240,9 @@ To stop capturing the keyboard, focus QEMU and type `ctl + alt + g` again.
 ## Boot straight into Arch
 Drop the `-cdrom` option to boot straight into Arch:
 
-`qemu-system-x86_64 -drive file=arch.cow,format=raw -m 4G -accel kvm -cpu host -smp 4`
+`qemu-system-x86_64 -drive file=arch.cow,format=raw -m 4G -accel kvm -cpu host -audio driver=sdl,model=virtio`
 
-`-smp 4` supplies 4 CPU cores to the VM.
+`-audio driver=sdl,model=virtio` enables sound between Guest and Host.
 
 ## Troubleshooting
 
