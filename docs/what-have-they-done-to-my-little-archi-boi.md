@@ -21,9 +21,25 @@ Before we start, we need a "hard disk" that Arch will see as an available disk t
 
 Creates an 8G disk. `-f raw` is the file format. I found `raw` the most reliable. Other formats like `cow` (copy-on-write) would appear as an almost 0B disk in Arch, I assume which is caused by how the cow format works by only writing changed bytes. 
 
-!!! tip
+!!! tip "Adding Disk Space"
 
-    You can resize the file with:  `qemu-img resize -f raw arch.cow +4G` adds an extra 4G to the disk image.
+    Stop QEMU and add space to the virtual disk: `qemu-img resize -f raw arch.cow +4G`
+
+    Then run QEMU with -cdrom to enter the installation process. 
+
+    Run `fdisk /dev/sda` then type these commands:
+
+    `e` > `3` > `<enter>` `w`
+
+    Then resize the partition:
+
+    `e2fsck -f /dev/sda3` (press `y` to fix errors, if any)
+
+    `resize2fs /dev/sda3`
+
+    Then reboot back into Arch, and resume installing gdm
+
+`systemctl enable gdm && systemctl start gdm` will start GDM, and the graphical user interface now appears
 
 ## Install Arch
 Run `qemu-system-x86_64 -boot menu=on -cdrom archlinux-2024.04.01-x86_64.iso -drive file=arch.cow,format=raw -m 4G -accel kvm -cpu host`
@@ -158,9 +174,8 @@ archie  ALL=(ALL:ALL) ALL
 archie will now have full system access when they run sudo
 
 ## Install apps 
-`pacman -S gnome-terminal` installs a terminal emulator. Search "terminal emulator" for other options. 
 
-`pacman -S firefox` installs a browser.
+`pacman -S gdm gnome-control-center networkmanager gnome-terminal firefox` installs a display manager (GDM), a network manager for automatically configuring internet access, gnome-terminal for a terminal emulator and Firefox for a browser. 
 
 ## Set up GRUB
 Still within the `arch-chroot`: 
@@ -184,10 +199,20 @@ Enter `root` as the username, and the password from the steps above.
 
 That's it, you're using Arch. Keep reading to install a display manager, so we can use Arch graphically, not via the terminal.
 
-## Install Network Management software
-These steps will install a DHCP client and a DNS resolver. This gives Arch internet connectivity. [Arch Wiki: Network management](https://wiki.archlinux.org/title/Network_configuration#Network_management)
+## Graphical User Interface
+These steps configure GDM "The GNOME Display Manager", but there are other [options](https://wiki.archlinux.org/title/Display_manager#Graphical)
 
-`pacman -S networkmanager` installs NetworkManager. By default, Arch has `systemd-networkd` preinstalled, but GDM is compatible with NetworkManager by default. 
+!!! danger "Pacman errors"
+
+    For some reason when I ran this, I got an error that one of the dependencies (llvm-libs) could not be downloaded due to a 404.
+    To fix, I ran `pacman -Syyu` which synchronises the Pacman package database, then re-ran the installation of `gdm`
+
+![GUI.png](assets/images/archi-boi/arch_gdm_running.png)
+
+## Install Network Management software
+These steps will give Arch internet connectivity. [Arch Wiki: Network management](https://wiki.archlinux.org/title/Network_configuration#Network_management)
+
+By default, Arch has `systemd-networkd` preinstalled, but GDM is compatible with NetworkManager by default. 
 This means when you install GDM and `gnome-control-center`, and view Network settings, it will be able to show network config if you are using `NetworkManager`.
 
 `systemctl enable NetworkManager.service && systemctl start NetworkManager.service` starts NetworkManager.
@@ -209,45 +234,6 @@ This means when you install GDM and `gnome-control-center`, and view Network set
 Now you can `ping google.com` successfully. 
 
 If having troubles, start with `systemctl status NetworkManager` and `journalctl -u NetworkManager` to view logs.
-
-## Graphical User Interface
-I'll use GDM - "The GNOME Display Manager", but there are other [options](https://wiki.archlinux.org/title/Display_manager#Graphical)
-
-`pacman -S gdm`
-
-!!! danger "Pacman errors"
-
-    For some reason when I ran this, I got an error that one of the dependencies (llvm-libs) could not be downloaded due to a 404.
-    To fix, I ran `pacman -Syyu` which synchronises the Pacman package database, then re-ran the installation of `gdm`
-
-!!! tip "No disk space?"
-
-    > error: not enough free disk space. 
-
-    Stop QEMU and add space to the virtual disk: `qemu-img resize -f raw arch.cow +4G`
-
-    Then run QEMU with -cdrom (same command as above) to enter the installation process. 
-
-    Run `fdisk /dev/sda` then type these commands:
-
-    `e` > `3` > `<enter>` `w`
-
-    Then resize the partition:
-
-    `e2fsck -f /dev/sda3` (press `y` to fix errors, if any)
-
-    `resize2fs /dev/sda3`
-
-    Then reboot back into Arch, and resume installing gdm
-
-`systemctl enable gdm && systemctl start gdm` will start GDM, and the graphical user interface now appears
-
-![GUI.png](assets/images/archi-boi/arch_gdm_running.png)
-
-### Install GNOME control center
-Install `gnome-control-center` package to be able to change system settings.
-
-`pacman -S gnome-control-center`
 
 ## Capture keyboard
 If you want to capture the keyboard within the VM, e.g. `ctl + alt + del` / `alt + tab`, focus the QEMU window (by clicking on it), then `ctl + alt + g`.
