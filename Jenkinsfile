@@ -6,7 +6,7 @@ pipeline {
             steps {
                 sh '''
                     #!/bin/bash
-                    pip3 install -r requirements.txt
+                    pip3 install --user -r requirements.txt
 
                     # Build the MkDocs site
                     mkdocs build
