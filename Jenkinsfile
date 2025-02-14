@@ -6,9 +6,7 @@ pipeline {
             steps {
                 sh '''
                     #!/bin/bash
-                    virtualenv .venv
-                    source .venv/bin/activate
-                    pip3 install -r requirements.txt
+                    pip install -r requirements.txt
 
                     # Build the MkDocs site
                     mkdocs build
