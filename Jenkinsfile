@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'python-agent' } 
 
     stages {
         stage('Build MkDocs') {
@@ -13,10 +13,10 @@ pipeline {
                     echo "MkDocs build complete."
                 '''
             }
-        }
-        post {
-            success {
-                archiveArtifacts 'site'
+            post {
+                success {
+                    archiveArtifacts 'site'
+                }
             }
         }
     }
