@@ -15,7 +15,7 @@ pipeline {
             }
             post {
                 success {
-                    archiveArtifacts 'site'
+                    archiveArtifacts 'site/**'
                 }
             }
         }
