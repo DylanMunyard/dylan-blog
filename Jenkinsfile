@@ -5,7 +5,6 @@ pipeline {
         stage('Build MkDocs') {
             steps {
                 sh '''
-                    #!/bin/bash
                     pip install -r requirements.txt
 
                     # Build the MkDocs site
@@ -18,10 +17,9 @@ pipeline {
                 '''
             }
         }
-
-        stage('Archive Artifacts') {
-            steps {
-                archiveArtifacts artifacts: 'site.tar.gz, site/**' // Archive the built site and the tarball
+        post {
+            success {
+                archiveArtifacts 'site'
             }
         }
     }
