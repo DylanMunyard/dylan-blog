@@ -10,9 +10,6 @@ pipeline {
                     # Build the MkDocs site
                     mkdocs build
 
-                    # Create an archive of the site (optional but recommended)
-                    tar -czvf site.tar.gz site
-
                     echo "MkDocs build complete."
                 '''
             }
