@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'python-agent' } 
+    agent { label 'python' } 
 
     stages {
         stage('Build MkDocs') {
