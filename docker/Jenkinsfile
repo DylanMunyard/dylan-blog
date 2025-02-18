@@ -6,8 +6,8 @@ pipeline {
   }
   stages {
     stage('Docker build') {
-        sh "ls -la"
       steps {
+        sh "ls -la"
         container('docker') {
           sh 'docker run hello-world'
         }
