@@ -10,8 +10,8 @@ pipeline {
         container('dind') {
             sh '''
                 docker pull hello-world
-                docker tag hello-world container-registry-service.container-registry/hello-world:latest
-                docker push container-registry-service.container-registry/hello-world:latest
+                docker tag hello-world container-registry-service.container-registry:5000/hello-world:latest
+                docker push container-registry-service.container-registry:5000/hello-world:latest
             '''
         }
       }
