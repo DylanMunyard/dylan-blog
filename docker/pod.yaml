@@ -1,26 +1,19 @@
-apiVersion: v1
-kind: Pod
+metadata:
+  labels:
+    app: jenkins
 spec:
-  volumes:
-  - name: docker-socket
-    emptyDir: {}
   containers:
-  - name: docker
-    image: docker:19.03.1
-    readinessProbe:
-      exec:
-        command: [sh, -c, "ls -S /var/run/docker.sock"]
-    command:
-    - sleep
-    args:
-    - 99d
-    volumeMounts:
-    - name: docker-socket
-      mountPath: /var/run
-  - name: docker-daemon
-    image: docker:19.03.1-dind
-    securityContext:
-      privileged: true
-    volumeMounts:
-    - name: docker-socket
-      mountPath: /var/run
+    - name: jnlp
+      env:
+      - name: CONTAINER_ENV_VAR
+        value: jnlp
+    - name: dind
+      image: docker:dind
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: dind-storage
+          mountPath: /var/lib/docker
+  volumes:
+    - name: dind-storage
+      emptyDir: {}
