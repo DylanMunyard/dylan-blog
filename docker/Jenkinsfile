@@ -9,7 +9,7 @@ pipeline {
       steps {
         container('dind') {
             sh '''
-                docker pull hello-world'
+                docker pull hello-world
                 docker tag hello-world container-registry-service.container-registry/hello-world:latest
                 docker push container-registry-service.container-registry/hello-world:latest
             '''
