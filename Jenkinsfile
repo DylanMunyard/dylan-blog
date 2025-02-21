@@ -1,23 +1,19 @@
 pipeline {
-    agent { label 'python' } 
-
-    stages {
-        stage('Build MkDocs') {
-            steps {
-                sh '''
-                    pip install -r requirements.txt
-
-                    # Build the MkDocs site
-                    mkdocs build
-
-                    echo "MkDocs build complete."
-                '''
-            }
-            post {
-                success {
-                    archiveArtifacts 'site/**'
-                }
-            }
-        }
+  agent {
+    kubernetes {
+      yamlFile 'docker/pod.yaml'
     }
+  }
+  stages {
+    stage('Docker build') {
+      steps {
+        container('dind') {
+            sh '''
+                docker build -f docker/Dockerfile . -t container-registry-service.container-registry:5000/dylan-blog:latest
+                docker push container-registry-service.container-registry:5000/dylan-blog:latest
+            '''
+        }
+      }
+    }
+  }
 }
