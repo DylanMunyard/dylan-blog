@@ -2,6 +2,8 @@ metadata:
   labels:
     app: jenkins
 spec:
+  nodeSelector:
+    beta.kubernetes.io/arch: arm64
   containers:
     - name: dind
       image: docker:dind
