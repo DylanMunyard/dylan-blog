@@ -7,6 +7,10 @@ spec:
   containers:
     - name: dind
       image: docker:dind
+      resources:
+        requests:
+          cpu: 2
+          memory: 1Gi
       securityContext:
         privileged: true
       volumeMounts:
