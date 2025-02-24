@@ -15,5 +15,10 @@ pipeline {
         }
       }
     }
+    stage('Apply Kubernetes files') {
+      withKubeConfig([namespace: "this-other-namespace"]) {
+          sh 'kubectl rollout restart deployment/blog'
+        }
+    }
   }
 }
