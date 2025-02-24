@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-      yamlFile 'docker/pod.yaml'
+      yamlFile 'deploy/pod.yaml'
     }
   }
   stages {
@@ -9,16 +9,16 @@ pipeline {
       steps {
         container('dind') {
             sh '''
-                docker build -f docker/Dockerfile . -t container-registry-service.container-registry:5000/dylan-blog:latest
+                docker build -f deploy/Dockerfile . -t container-registry-service.container-registry:5000/dylan-blog:latest
                 docker push container-registry-service.container-registry:5000/dylan-blog:latest
             '''
         }
       }
     }
-    stage('Apply Kubernetes files') {
-      withKubeConfig([namespace: "this-other-namespace"]) {
-          sh 'kubectl rollout restart deployment/blog'
-        }
+    stage('Deploy') {
+      withKubeConfig([namespace: "blog"]) {
+        sh 'kubectl apply -f deploy/k8s'
+      }
     }
   }
 }
