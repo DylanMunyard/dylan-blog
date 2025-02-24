@@ -16,8 +16,10 @@ pipeline {
       }
     }
     stage('Deploy') {
-      withKubeConfig([namespace: "blog"]) {
-        sh 'kubectl apply -f deploy/k8s'
+      steps {
+        withKubeConfig([namespace: "blog"]) {
+          sh 'kubectl apply -f deploy/k8s'
+        }
       }
     }
   }
