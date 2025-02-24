@@ -19,6 +19,12 @@ spec:
         - name: docker-config
           mountPath: /etc/docker/daemon.json
           subPath: daemon.json
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      resources:
+        requests:
+          cpu: 0.5
+          memory: 512Mi
   volumes:
     - name: dind-storage
       emptyDir: {}

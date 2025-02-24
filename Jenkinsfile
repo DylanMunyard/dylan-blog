@@ -17,10 +17,12 @@ pipeline {
     }
     stage('Deploy') {
       steps {
-        withKubeConfig([namespace: "blog"]) {
-          sh 'kubectl apply -f deploy/k8s'
+        container('kubectl') {
+            withKubeConfig([namespace: "blog"]) {
+              sh 'kubectl apply -f deploy/k8s'
+            }
+          }
         }
-      }
     }
   }
 }
