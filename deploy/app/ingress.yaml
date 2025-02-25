@@ -1,0 +1,14 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: blog
+  namespace: blog
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`blog.home.net`)
+    kind: Rule
+    services:
+    - name: blog-service
+      port: 80
