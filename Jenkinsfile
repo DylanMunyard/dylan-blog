@@ -19,7 +19,7 @@ pipeline {
       steps {
         container('kubectl') {
             withKubeConfig([namespace: "blog"]) {
-              sh 'kubectl apply -f deploy/k8s'
+              sh 'kubectl rollout restart deployment/blog'
             }
           }
         }
