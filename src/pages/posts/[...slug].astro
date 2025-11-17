@@ -1,0 +1,67 @@
+---
+import { getCollection } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: post,
+  }));
+}
+
+type Props = CollectionEntry<'blog'>;
+
+const post = Astro.props;
+const { Content } = await post.render();
+
+// Format date
+const formatDate = (date: Date) => {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+};
+
+// Calculate reading time
+const calculateReadingTime = (content: string) => {
+  const words = content.split(/\s+/).length;
+  const minutes = Math.ceil(words / 200);
+  return `${minutes} min read`;
+};
+---
+
+<BaseLayout title={`${post.data.title} - Dylan Munyard`} description={post.data.description}>
+  <article>
+    <div class="post-meta">
+      <span>{formatDate(post.data.date)}</span>
+      <span>•</span>
+      <span>{calculateReadingTime(post.body)}</span>
+    </div>
+
+    <h1>{post.data.title}</h1>
+
+    {post.data.tags && post.data.tags.length > 0 && (
+      <div class="tags">
+        {post.data.tags.map((tag) => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
+    )}
+
+    <div class="post-content">
+      <Content />
+    </div>
+  </article>
+
+  <div style="margin-top: 3rem; display: flex; gap: 1rem;">
+    <a href="/" class="nav-link">
+      ← Home
+    </a>
+    <a href="/posts" class="nav-link">
+      Archive
+    </a>
+  </div>
+</BaseLayout>

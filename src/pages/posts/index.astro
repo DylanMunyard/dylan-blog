@@ -1,0 +1,59 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+// Get all blog posts and sort by date (newest first)
+const allPosts = await getCollection('blog', ({ data }) => {
+  return data.draft !== true;
+});
+
+const sortedPosts = allPosts.sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+// Format date
+const formatDate = (date: Date) => {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+};
+---
+
+<BaseLayout title="Blog Archive - Dylan Munyard" description="All blog posts">
+  <h1>Blog Archive</h1>
+  <p style="color: var(--color-text-muted); margin-bottom: 2rem;">
+    {sortedPosts.length} post{sortedPosts.length !== 1 ? 's' : ''} total
+  </p>
+
+  <ul class="post-list">
+    {sortedPosts.map((post) => (
+      <li class="post-item">
+        <h2>
+          <a href={`/posts/${post.slug}`}>
+            {post.data.title}
+          </a>
+        </h2>
+        <p>{post.data.description}</p>
+        <div class="post-meta" style="margin-top: 0.5rem;">
+          <span>{formatDate(post.data.date)}</span>
+          {post.data.tags && post.data.tags.length > 0 && (
+            <>
+              <span>•</span>
+              <div class="tags" style="margin: 0;">
+                {post.data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </li>
+    ))}
+  </ul>
+
+  <a href="/" class="nav-link" style="margin-top: 3rem;">
+    ← Back to home
+  </a>
+</BaseLayout>

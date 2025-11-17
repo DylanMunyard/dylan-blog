@@ -1,0 +1,63 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Get all blog posts and sort by date (newest first)
+const allPosts = await getCollection('blog', ({ data }) => {
+  return data.draft !== true;
+});
+
+const sortedPosts = allPosts.sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+// Get the latest post
+const latestPost = sortedPosts[0];
+const { Content } = await latestPost.render();
+
+// Format date
+const formatDate = (date: Date) => {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+};
+
+// Calculate reading time (rough estimate: 200 words per minute)
+const calculateReadingTime = (content: string) => {
+  const words = content.split(/\s+/).length;
+  const minutes = Math.ceil(words / 200);
+  return `${minutes} min read`;
+};
+---
+
+<BaseLayout title={`${latestPost.data.title} - Dylan Munyard`} description={latestPost.data.description}>
+  <article>
+    <div class="post-meta">
+      <span>{formatDate(latestPost.data.date)}</span>
+      <span>•</span>
+      <span>{calculateReadingTime(latestPost.body)}</span>
+    </div>
+
+    <h1>{latestPost.data.title}</h1>
+
+    {latestPost.data.tags && latestPost.data.tags.length > 0 && (
+      <div class="tags">
+        {latestPost.data.tags.map((tag) => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
+    )}
+
+    <div class="post-content">
+      <Content />
+    </div>
+  </article>
+
+  {sortedPosts.length > 1 && (
+    <a href="/posts" class="nav-link">
+      View all {sortedPosts.length - 1} previous post{sortedPosts.length > 2 ? 's' : ''}
+    </a>
+  )}
+</BaseLayout>
