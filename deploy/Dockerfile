@@ -7,8 +7,15 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm install
+# Install production dependencies only. --omit=dev skips @astrojs/check and
+# its transitive git-hosted dependency (@emmetio/css-parser), which the
+# cluster builder can't reliably fetch from GitHub — the static build
+# (astro build) doesn't need the type-checker. The fetch-retry settings add
+# resilience against flaky egress from the build node.
+RUN npm ci --omit=dev --no-audit --no-fund \
+      --fetch-retries=5 \
+      --fetch-retry-mintimeout=20000 \
+      --fetch-retry-maxtimeout=120000
 
 # Copy the rest of the project
 COPY . .
