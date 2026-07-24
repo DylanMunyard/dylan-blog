@@ -1,59 +1,163 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import Tag from '../../components/Tag.astro';
 
-// Get all blog posts and sort by date (newest first)
-const allPosts = await getCollection('blog', ({ data }) => {
-  return data.draft !== true;
+// Get non-draft posts sorted by date
+const allPosts = await getCollection('blog', ({ data }) => data.draft !== true);
+const sortedPosts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+// Collect unique categories/tags
+const categoriesSet = new Set<string>();
+sortedPosts.forEach((post) => {
+  if (post.data.tags) {
+    post.data.tags.forEach((t) => categoriesSet.add(t));
+  }
 });
+const categories = ['all', ...Array.from(categoriesSet)];
 
-const sortedPosts = allPosts.sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
-);
-
-// Format date
+// Format helpers
 const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   }).format(date);
+};
+
+const calculateReadingTime = (content: string) => {
+  const words = content.split(/\s+/).length;
+  const minutes = Math.ceil(words / 200);
+  return `${minutes} min read`;
 };
 ---
 
-<BaseLayout title="Blog Archive - Dylan Munyard" description="All blog posts">
-  <h1>Blog Archive</h1>
-  <p style="color: var(--color-text-muted); margin-bottom: 2rem;">
-    {sortedPosts.length} post{sortedPosts.length !== 1 ? 's' : ''} total
-  </p>
+<BaseLayout title="Blog Archive — Dylan Munyard" description="Complete archive of technical posts by Dylan Munyard">
+  <div class="archive-container">
+    <header class="archive-header">
+      <div class="subtitle">~ archive</div>
+      <h1 class="archive-title">All Posts</h1>
+      <p class="archive-count">{sortedPosts.length} article{sortedPosts.length === 1 ? '' : 's'} published</p>
 
-  <ul class="post-list">
-    {sortedPosts.map((post) => (
-      <li class="post-item">
-        <h2>
-          <a href={`/posts/${post.slug}`}>
-            {post.data.title}
-          </a>
-        </h2>
-        <p>{post.data.description}</p>
-        <div class="post-meta" style="margin-top: 0.5rem;">
-          <span>{formatDate(post.data.date)}</span>
-          {post.data.tags && post.data.tags.length > 0 && (
-            <>
-              <span>•</span>
-              <div class="tags" style="margin: 0;">
-                {post.data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
-            </>
-          )}
+      <div class="tag-filter-bar">
+        {categories.map((cat) => (
+          <button
+            class={`tag-filter-btn ${cat === 'all' ? 'active' : ''}`}
+            data-category={cat}
+          >
+            <Tag color={cat === 'all' ? undefined : 'neutral'} active={cat === 'all'}>
+              {cat}
+            </Tag>
+          </button>
+        ))}
+      </div>
+    </header>
+
+    <section class="posts-grid">
+      {sortedPosts.map((post) => (
+        <div class="post-card-wrapper" data-tags={JSON.stringify(post.data.tags || [])}>
+          <PostCard
+            title={post.data.title}
+            date={formatDate(post.data.date)}
+            readTime={calculateReadingTime(post.body)}
+            excerpt={post.data.description}
+            categories={post.data.tags || []}
+            image={post.data.image}
+            href={`/posts/${post.slug}`}
+          />
         </div>
-      </li>
-    ))}
-  </ul>
-
-  <a href="/" class="nav-link" style="margin-top: 3rem;">
-    ← Back to home
-  </a>
+      ))}
+    </section>
+  </div>
 </BaseLayout>
+
+<style>
+  .archive-container {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 32px 96px;
+  }
+
+  .archive-header {
+    padding: 64px 0 48px;
+  }
+
+  .subtitle {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .archive-title {
+    margin: 12px 0 8px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-1);
+  }
+
+  .archive-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+  }
+
+  .tag-filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
+
+  .tag-filter-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .post-card-wrapper.hidden {
+    display: none;
+  }
+</style>
+
+<script>
+  const filterBtns = document.querySelectorAll<HTMLButtonElement>('.tag-filter-btn');
+  const postCards = document.querySelectorAll<HTMLDivElement>('.post-card-wrapper');
+
+  filterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const selectedCategory = btn.getAttribute('data-category');
+
+      filterBtns.forEach((b) => {
+        const isSelected = b.getAttribute('data-category') === selectedCategory;
+        b.classList.toggle('active', isSelected);
+        const tagPill = b.querySelector('.tag-pill');
+        if (tagPill) {
+          tagPill.classList.toggle('active', isSelected);
+        }
+      });
+
+      postCards.forEach((card) => {
+        const tags: string[] = JSON.parse(card.getAttribute('data-tags') || '[]');
+        if (selectedCategory === 'all' || tags.includes(selectedCategory!)) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    });
+  });
+</script>

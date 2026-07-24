@@ -1,0 +1,19 @@
+<!-- @dsCard group="Components" viewport="700x300" name="ParallaxBackdrop" subtitle="Fixed art, cursor drift, scrim content" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>html,body{margin:0;height:100%;overflow:hidden}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const {ParallaxBackdrop}=window.MunyardDevDesignSystem_0136e3;
+ReactDOM.createRoot(document.getElementById('root')).render(
+<ParallaxBackdrop image="../../assets/backgrounds/jwst-nebula.png" dim={0.3}>
+  <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>
+    <div style={{background:'var(--scrim-content)',backdropFilter:'blur(var(--scrim-blur))',WebkitBackdropFilter:'blur(var(--scrim-blur))',border:'1px solid var(--line-1)',borderRadius:'var(--radius-lg)',padding:'28px 36px',maxWidth:460}}>
+      <div style={{fontFamily:'var(--font-mono)',fontWeight:500,fontSize:'var(--text-xs)',letterSpacing:'var(--tracking-wide)',textTransform:'uppercase',color:'var(--accent)'}}>move your cursor</div>
+      <p style={{margin:'8px 0 0',fontFamily:'var(--font-body)',fontSize:'1.0625rem',lineHeight:1.65,color:'var(--fg-1)'}}>The art stays fixed while content scrolls, drifting up to 16px toward the cursor.</p>
+    </div>
+  </div>
+</ParallaxBackdrop>);
+</script></body></html>

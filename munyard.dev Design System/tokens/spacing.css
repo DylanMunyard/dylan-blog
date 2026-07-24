@@ -1,0 +1,9 @@
+:root{
+--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:48px;--space-8:64px;--space-9:96px;--space-10:128px;
+--content-max:720px;  /* prose column */
+--page-max:1120px;    /* header / index grid */
+--radius-sm:6px;      /* tags, inline code */
+--radius-md:10px;     /* buttons, callouts */
+--radius-lg:14px;     /* cards, code blocks */
+--radius-full:999px;  /* pills */
+}

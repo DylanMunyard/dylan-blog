@@ -2,6 +2,8 @@
 import { getCollection } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import ParallaxBackdrop from '../../components/ParallaxBackdrop.astro';
+import Tag from '../../components/Tag.astro';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
@@ -18,10 +20,10 @@ const { Content } = await post.render();
 
 // Format date
 const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   }).format(date);
 };
 
@@ -31,37 +33,174 @@ const calculateReadingTime = (content: string) => {
   const minutes = Math.ceil(words / 200);
   return `${minutes} min read`;
 };
+
+const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
 ---
 
-<BaseLayout title={`${post.data.title} - Dylan Munyard`} description={post.data.description}>
-  <article>
-    <div class="post-meta">
-      <span>{formatDate(post.data.date)}</span>
-      <span>•</span>
-      <span>{calculateReadingTime(post.body)}</span>
+<BaseLayout title={`${post.data.title} — Dylan Munyard`} description={post.data.description}>
+  <ParallaxBackdrop image={bgImage} dim={0.35}>
+    <div class="post-container">
+      <article class="post-scrim">
+        <a href="/" class="back-link">← all posts</a>
+
+        <div class="post-header-meta">
+          {formatDate(post.data.date)} · {calculateReadingTime(post.body)}
+        </div>
+
+        <h1 class="post-title">{post.data.title}</h1>
+
+        {post.data.tags && post.data.tags.length > 0 && (
+          <div class="post-tags">
+            {post.data.tags.map((tag) => (
+              <Tag color="amber">{tag}</Tag>
+            ))}
+          </div>
+        )}
+
+        <div class="post-content">
+          <Content />
+        </div>
+
+        <div class="post-footer-actions">
+          <a href="/" class="btn btn-primary">← Back to posts</a>
+          <a href="https://github.com/DylanMunyard/dylan-blog" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+            View source ↗
+          </a>
+        </div>
+      </article>
     </div>
-
-    <h1>{post.data.title}</h1>
-
-    {post.data.tags && post.data.tags.length > 0 && (
-      <div class="tags">
-        {post.data.tags.map((tag) => (
-          <span class="tag">{tag}</span>
-        ))}
-      </div>
-    )}
-
-    <div class="post-content">
-      <Content />
-    </div>
-  </article>
-
-  <div style="margin-top: 3rem; display: flex; gap: 1rem;">
-    <a href="/" class="nav-link">
-      ← Home
-    </a>
-    <a href="/posts" class="nav-link">
-      Archive
-    </a>
-  </div>
+  </ParallaxBackdrop>
 </BaseLayout>
+
+<style>
+  .post-container {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 72px 24px 96px;
+  }
+
+  .post-scrim {
+    background: var(--scrim-content);
+    backdrop-filter: blur(var(--scrim-blur));
+    -webkit-backdrop-filter: blur(var(--scrim-blur));
+    border: 1px solid var(--line-1);
+    border-radius: var(--radius-lg);
+    padding: 56px 56px 64px;
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+  }
+
+  .back-link {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  .back-link:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .post-header-meta {
+    margin-top: 32px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .post-title {
+    margin: 14px 0 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-1);
+  }
+
+  .post-tags {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .post-content {
+    margin-top: 36px;
+  }
+
+  .post-footer-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line-1);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: all var(--dur-fast) var(--ease-out);
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-strong);
+    color: #fff;
+    text-decoration: none;
+  }
+
+  .btn-secondary {
+    background: var(--bg-2);
+    color: var(--fg-1);
+    border: 1px solid var(--line-1);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-3);
+    border-color: var(--line-2);
+    text-decoration: none;
+  }
+
+  @media (max-width: 768px) {
+    .post-container {
+      padding: 0 0 48px;
+      width: 100%;
+      max-width: 100%;
+    }
+    .post-scrim {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      padding: 28px 20px 40px;
+      background: rgba(9, 14, 26, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .post-title {
+      font-size: 2.125rem;
+    }
+    .post-footer-actions {
+      flex-direction: column;
+    }
+  }
+</style>

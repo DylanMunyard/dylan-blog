@@ -1,0 +1,90 @@
+---
+interface Props {
+  image?: string;
+  dim?: number;
+}
+
+const { image = '/assets/backgrounds/jwst-nebula.png', dim = 0.35 } = Astro.props;
+---
+
+<div class="parallax-wrapper">
+  <div
+    class="parallax-bg"
+    data-parallax-bg
+    style={`background-image: url('${image}'); opacity: ${1 - dim};`}
+  ></div>
+  <div class="parallax-content">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .parallax-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    background: var(--bg-0);
+    overflow: hidden;
+  }
+
+  .parallax-bg {
+    position: fixed;
+    top: -20px;
+    left: -20px;
+    right: -20px;
+    bottom: -20px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+    transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+    filter: brightness(0.85) contrast(1.1);
+  }
+
+  .parallax-content {
+    position: relative;
+    z-index: 1;
+  }
+</style>
+
+<script>
+  let targetX = 0;
+  let targetY = 0;
+  let currentX = 0;
+  let currentY = 0;
+  let rafId: number | null = null;
+
+  const bg = document.querySelector('[data-parallax-bg]') as HTMLElement;
+
+  if (bg && window.matchMedia('(pointer: fine)').matches) {
+    window.addEventListener('mousemove', (e) => {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const shiftMax = 16; // 16px parallax drift
+
+      targetX = ((e.clientX - centerX) / centerX) * shiftMax;
+      targetY = ((e.clientY - centerY) / centerY) * shiftMax;
+
+      if (!rafId) {
+        rafId = requestAnimationFrame(updateParallax);
+      }
+    });
+
+    function updateParallax() {
+      currentX += (targetX - currentX) * 0.1;
+      currentY += (targetY - currentY) * 0.1;
+
+      if (bg) {
+        bg.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0)`;
+      }
+
+      if (Math.abs(targetX - currentX) > 0.01 || Math.abs(targetY - currentY) > 0.01) {
+        rafId = requestAnimationFrame(updateParallax);
+      } else {
+        rafId = null;
+      }
+    }
+  }
+</script>

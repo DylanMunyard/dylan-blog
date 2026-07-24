@@ -1,0 +1,114 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blue palette exploration</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{margin:0;font-family:var(--font-body)}
+.frame{position:absolute;width:720px;border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.5)}
+.label{position:absolute;font:600 14px var(--font-display);letter-spacing:0.02em;color:#cdd6e4;top:-34px;left:2px}
+.sub{position:absolute;font:400 12px var(--font-mono);color:#7b8698;top:-34px;left:2px;transform:translateY(20px)}
+.chrome{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--fx-line);background:rgba(0,0,0,0.25);backdrop-filter:blur(12px)}
+.mark{font:600 15px var(--font-mono)}
+.nav{display:flex;gap:22px;font:500 13px var(--font-display);color:var(--fx-fg2)}
+.stage{position:relative;height:420px;background-position:center;background-size:cover}
+.veil{position:absolute;inset:0}
+.card{position:absolute;left:44px;right:44px;top:52px;bottom:52px;border-radius:14px;border:1px solid var(--fx-line);padding:34px 40px;background:var(--fx-scrim);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.kicker{font:500 12px var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--fx-accent)}
+.title{margin:12px 0 0;font:700 40px/1.08 var(--font-display);letter-spacing:-0.02em;color:var(--fx-fg1)}
+.tags{display:flex;gap:8px;margin-top:18px}
+.tag{font:500 12px var(--font-mono);padding:4px 12px;border-radius:999px;color:var(--fx-accent);background:var(--fx-accent-dim);border:1px solid transparent}
+.body{margin:20px 0 0;font:400 17px/1.6 var(--font-body);color:var(--fx-fg1);max-width:48ch}
+.body b{color:var(--fx-accent);font-weight:500}
+.btns{display:flex;gap:12px;margin-top:26px}
+.btn{font:600 14px var(--font-display);padding:11px 18px;border-radius:10px;cursor:pointer}
+.btn.p{background:var(--fx-accent);color:var(--fx-ink)}
+.btn.s{background:rgba(255,255,255,0.04);color:var(--fx-fg1);border:1px solid var(--fx-line)}
+.swatches{display:flex;gap:0;margin-top:22px;border-radius:8px;overflow:hidden;width:fit-content}
+.sw{width:56px;height:34px;display:flex;align-items:flex-end;padding:3px;font:500 8px var(--font-mono);color:rgba(255,255,255,0.6)}
+</style></head><body>
+
+<!-- ============ 2a — Azure + Ember ============ -->
+<div id="2a" class="frame" style="left:80px;top:80px;--fx-fg1:#eaf1fb;--fx-fg2:#9fb0c8;--fx-line:#1e2b40;--fx-accent:#60a5fa;--fx-accent-dim:rgba(96,165,250,0.16);--fx-ink:#04152e;--fx-scrim:rgba(9,14,26,0.8);--fx-warm:#fb923c;--fx-warm-dim:rgba(251,146,60,0.15)">
+  <div class="label">2a · Azure + Ember</div>
+  <div class="sub">azure lead · orange for accents & code</div>
+  <div class="chrome"><span class="mark"><span style="color:#60a5fa">dylan@munyard.dev</span><span style="color:#5b6b83">:~$</span></span><span class="nav"><span>Posts</span><span>About</span></span></div>
+  <div class="stage" style="background:radial-gradient(120% 90% at 50% -10%,#12233f 0%,#0a1120 55%,#070b14 100%)">
+    <div class="veil" style="background:radial-gradient(55% 45% at 88% 92%,rgba(251,146,60,0.12) 0%,rgba(251,146,60,0) 60%)"></div>
+    <div class="card">
+      <div class="kicker" style="color:var(--fx-warm)">25 Feb 2024 · 12 min read</div>
+      <h1 class="title">Running Arch Linux inside QEMU</h1>
+      <div class="tags"><span class="tag" style="color:var(--fx-warm);background:var(--fx-warm-dim)">virtualisation</span><span class="tag" style="color:var(--fx-warm);background:var(--fx-warm-dim)">linux</span></div>
+      <p class="body">Install Arch in a VM first, capture notes on the process, then <b>replace the host OS</b>. Run <b style="color:var(--fx-warm)">qemu-img create</b> to make the disk.</p>
+      <div class="btns"><span class="btn p">Read post →</span><span class="btn s">View source ↗</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2b — Cobalt + Tangerine ============ -->
+<div id="2b" class="frame" style="left:880px;top:80px;--fx-fg1:#eef2fa;--fx-fg2:#a4b2c9;--fx-line:#1d2740;--fx-accent:#3b82f6;--fx-accent-dim:rgba(59,130,246,0.16);--fx-ink:#eaf1ff;--fx-scrim:rgba(8,12,24,0.82);--fx-warm:#f97316;--fx-warm-dim:rgba(249,115,22,0.16)">
+  <div class="label">2b · Cobalt + Tangerine</div>
+  <div class="sub">orange is the CTA · cobalt links & field</div>
+  <div class="chrome"><span class="mark"><span style="color:#60a5fa">dylan@munyard.dev</span><span style="color:#5b6b83">:~$</span></span><span class="nav"><span>Posts</span><span>About</span></span></div>
+  <div class="stage" style="background:radial-gradient(120% 95% at 20% -10%,#132447 0%,#0a1224 55%,#070a12 100%)">
+    <div class="veil" style="background:radial-gradient(60% 50% at 90% 100%,rgba(249,115,22,0.16) 0%,rgba(249,115,22,0) 58%)"></div>
+    <div class="card">
+      <div class="kicker" style="color:var(--fx-accent)">25 Feb 2024 · 12 min read</div>
+      <h1 class="title">Running Arch Linux inside QEMU</h1>
+      <div class="tags"><span class="tag">virtualisation</span><span class="tag">linux</span></div>
+      <p class="body">Install Arch in a VM first, capture notes on the process, then <b>replace the host OS</b>. Run <b style="color:var(--fx-warm)">qemu-img create</b> to make the disk.</p>
+      <div class="btns"><span class="btn p" style="background:var(--fx-warm);color:#20120a">Read post →</span><span class="btn s">View source ↗</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 1a — Midnight Azure ============ -->
+<div id="1a" class="frame" style="left:80px;top:640px;--fx-fg1:#eaf1fb;--fx-fg2:#9fb0c8;--fx-line:#1e2b40;--fx-accent:#60a5fa;--fx-accent-dim:rgba(96,165,250,0.16);--fx-ink:#04152e;--fx-scrim:rgba(9,14,26,0.8)">
+  <div class="label">1a · Midnight Azure</div>
+  <div class="sub">deep navy · bright azure accent</div>
+  <div class="chrome"><span class="mark"><span style="color:#60a5fa">dylan@munyard.dev</span><span style="color:#5b6b83">:~$</span></span><span class="nav"><span>Posts</span><span>About</span></span></div>
+  <div class="stage" style="background:radial-gradient(120% 90% at 50% -10%,#12233f 0%,#0a1120 55%,#070b14 100%)">
+    <div class="veil"></div>
+    <div class="card">
+      <div class="kicker">25 Feb 2024 · 12 min read</div>
+      <h1 class="title">Running Arch Linux inside QEMU</h1>
+      <div class="tags"><span class="tag">virtualisation</span><span class="tag">linux</span></div>
+      <p class="body">Install Arch in a VM first, capture notes on the process, then <b>replace the host OS</b>. Run <b>qemu-img create</b> to make the disk.</p>
+      <div class="btns"><span class="btn p">Read post →</span><span class="btn s">View source ↗</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 1b — Ice Fade ============ -->
+<div id="1b" class="frame" style="left:880px;top:640px;--fx-fg1:#f1f6fd;--fx-fg2:#a9bad2;--fx-line:#20304a;--fx-accent:#bae0ff;--fx-accent-dim:rgba(186,224,255,0.14);--fx-ink:#0a1a33;--fx-scrim:rgba(10,17,32,0.74)">
+  <div class="label">1b · Ice Fade</div>
+  <div class="sub">navy → pale-blue/white glow fades</div>
+  <div class="chrome"><span class="mark"><span style="color:#bae0ff">dylan@munyard.dev</span><span style="color:#5f708a">:~$</span></span><span class="nav"><span>Posts</span><span>About</span></span></div>
+  <div class="stage" style="background:linear-gradient(160deg,#0d1a30 0%,#0a1120 40%,#070b14 100%)">
+    <div class="veil" style="background:radial-gradient(70% 60% at 78% 12%,rgba(186,224,255,0.22) 0%,rgba(186,224,255,0) 60%),radial-gradient(60% 50% at 12% 96%,rgba(120,170,240,0.18) 0%,rgba(120,170,240,0) 60%)"></div>
+    <div class="card">
+      <div class="kicker">25 Feb 2024 · 12 min read</div>
+      <h1 class="title">Running Arch Linux inside QEMU</h1>
+      <div class="tags"><span class="tag">virtualisation</span><span class="tag">linux</span></div>
+      <p class="body">Install Arch in a VM first, capture notes on the process, then <b>replace the host OS</b>. Run <b>qemu-img create</b> to make the disk.</p>
+      <div class="btns"><span class="btn p">Read post →</span><span class="btn s">View source ↗</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 1c — Steel Cyan ============ -->
+<div id="1c" class="frame" style="left:480px;top:1200px;--fx-fg1:#e9f2f8;--fx-fg2:#9db4c4;--fx-line:#1b2c3a;--fx-accent:#7dd3fc;--fx-accent-dim:rgba(125,211,252,0.15);--fx-ink:#04202e;--fx-scrim:rgba(8,15,22,0.8)">
+  <div class="label">1c · Steel Cyan</div>
+  <div class="sub">closest to current mint, shifted blue</div>
+  <div class="chrome"><span class="mark"><span style="color:#7dd3fc">dylan@munyard.dev</span><span style="color:#5a6d7c">:~$</span></span><span class="nav"><span>Posts</span><span>About</span></span></div>
+  <div class="stage" style="background:radial-gradient(110% 80% at 30% 110%,#0e2433 0%,#091620 55%,#070b14 100%)">
+    <div class="veil" style="background:radial-gradient(50% 50% at 85% 20%,rgba(125,211,252,0.14) 0%,rgba(125,211,252,0) 65%)"></div>
+    <div class="card">
+      <div class="kicker">25 Feb 2024 · 12 min read</div>
+      <h1 class="title">Running Arch Linux inside QEMU</h1>
+      <div class="tags"><span class="tag">virtualisation</span><span class="tag">linux</span></div>
+      <p class="body">Install Arch in a VM first, capture notes on the process, then <b>replace the host OS</b>. Run <b>qemu-img create</b> to make the disk.</p>
+      <div class="btns"><span class="btn p">Read post →</span><span class="btn s">View source ↗</span></div>
+    </div>
+  </div>
+</div>
+
+</body></html>

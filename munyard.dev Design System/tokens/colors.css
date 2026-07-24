@@ -1,0 +1,38 @@
+:root{
+/* Base — deep navy-black terminal surfaces */
+--bg-0:#070a12; /* page floor / behind backgrounds */
+--bg-1:#0a0e1a; /* page background */
+--bg-2:#111726; /* raised surface: cards, code blocks */
+--bg-3:#182034; /* higher surface: popovers, hover fills */
+--fg-1:#eaf1fb; /* primary text */
+--fg-2:#9fb0c8; /* secondary text */
+--fg-3:#6a7890; /* muted: metadata, captions */
+--line-1:#1e2b40; /* hairline borders */
+--line-2:#2c3a54; /* stronger borders, focus adjacents */
+/* Accent — azure */
+--accent:#60a5fa;
+--accent-strong:#3b82f6;
+--accent-dim:rgba(96,165,250,0.16);
+--accent-ink:#04152e; /* text on accent fills */
+/* Secondary — ember orange for highlights & inline code */
+--amber:#fb923c;
+--amber-dim:rgba(251,146,60,0.15);
+/* Semantic */
+--info:#7dd3fc;--info-dim:rgba(125,211,252,0.12);
+--warn:#fb923c;--warn-dim:rgba(251,146,60,0.14);
+--danger:#fda4af;--danger-dim:rgba(253,164,175,0.12);
+--success:#6ee7b7;--success-dim:rgba(110,231,183,0.12);
+/* Semantic aliases */
+--surface-page:var(--bg-1);
+--surface-card:var(--bg-2);
+--surface-raised:var(--bg-3);
+--text-body:var(--fg-1);
+--text-secondary:var(--fg-2);
+--text-muted:var(--fg-3);
+--text-link:var(--accent);
+--border-default:var(--line-1);
+--border-strong:var(--line-2);
+/* Content scrim — protects text over bespoke backgrounds */
+--scrim-content:rgba(9,14,26,0.82);
+--scrim-blur:14px;
+}

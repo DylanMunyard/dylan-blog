@@ -1,0 +1,16 @@
+:root{
+/* Syntax palette — muted dark, mint/amber led */
+--code-bg:var(--bg-2);
+--code-fg:#d6dde6;
+--code-comment:#5c6773;
+--code-keyword:#c4b5fd;
+--code-string:#6ee7b7;
+--code-number:#fbbf6a;
+--code-fn:#7dd3fc;
+--code-var:#e8ecf1;
+--code-flag:#fda4af;
+--code-line-hl:rgba(110,231,183,0.07);
+--code-gutter:#3a424f;
+}
+code{font-family:var(--font-mono)}
+:not(pre)>code{font-size:0.85em;color:var(--amber);background:var(--amber-dim);padding:0.15em 0.4em;border-radius:var(--radius-sm)}
