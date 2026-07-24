@@ -1,0 +1,17 @@
+# Internal Traefik ingress for the blog. Applied once by hand (CI only
+# touches blog-deployment.yaml):
+#   kubectl apply -f deploy/k8s/blog-ingress.yaml
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: blog
+  namespace: blog
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`blog.home.net`)
+      kind: Rule
+      services:
+        - name: blog-service
+          port: 80
