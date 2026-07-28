@@ -1,0 +1,105 @@
+---
+title: "Building a home media server - Part 2"
+description: "Part 2 - choosing an operating system, setting up the disks in RAID configuration"
+date: 2026-07-28
+tags: ["media server"]
+image: "/assets/building-a-home-server-pt2/building-home-server-pt2.webp"
+---
+
+import Callout from '../../components/Callout.astro';
+
+Don't use Windows. It needs a licence, and has too much friction for a home server. The reasons are many, but just go with Linux and thank me later.
+
+## Headless or graphical
+
+Depends on your comfort level with Linux. If you don't mind living entirely on the command line, go headless. This means you won't have a GUI, only a terminal.
+
+If you want a GUI, go with Ubuntu. There are many Linux distributions, but Ubuntu has the best designed installation process. It just works, has a nice GUI and you won't get stuck.
+
+I went with Proxmox. It's a Linux distribution that is designed to run virtual machines. It's basically the most fit for purpose OS for a home server. It has a web UI, and lets you deploy containers (known as LXC containers) or full virtual machines via the click of a button. The web UI comes in handy for remoting in to your home server, which we'll cover in a later post.
+
+<Callout kind="tip" title="Other headless options">
+The last option is a headless Linux distribution. I recommend Arch Linux. It's entirely DIY, to the point of frustration if you don't have good knowledge of Linux. But at the same time it's very rewarding to get it working, so I say give it a go. [My blog post](/posts/arch-linux-qemu) should get you up and running.
+</Callout>
+
+For the rest of this post, I'll detail how to set up a home server with Proxmox.
+
+## Bootable USB
+
+### Creating the USB
+
+Grab the latest [Proxmox ISO](https://www.proxmox.com/en/downloads/proxmox-virtual-environment/iso) version.
+
+You need to create a bootable USB disk from the ISO, this copies the ISO to the USB stick, so that you can boot from it (e.g. after BIOS it will show the Proxmox installer). I recommend using [Rufus](https://rufus.ie/en/).
+
+### Running the installer
+
+Once you boot from the USB stick you'll land on the installer menu.
+
+![Proxmox installer boot menu with Graphical, Terminal UI, Terminal UI with serial console, and Advanced Options entries](/assets/building-a-home-server-pt2/installer-boot-menu.png)
+
+It gives you a few options: Install Proxmox VE (Graphical), Install Proxmox VE (Terminal UI), Terminal UI with serial console, and Advanced Options. Go with Graphical, since you've got a real screen, keyboard and mouse plugged in, it's the easiest one to work through.
+
+First up is the End User License Agreement. Have a read if you want, then agree to it.
+
+![Proxmox End User License Agreement screen](/assets/building-a-home-server-pt2/eula.png)
+
+Next you choose the target hard disk. If you've only got one disk in the machine it'll already be selected for you.
+
+![Proxmox installer target hard disk selection screen](/assets/building-a-home-server-pt2/target-harddisk.png)
+
+<Callout kind="warn" title="This wipes the disk">
+This is the disk Proxmox gets installed onto, and it wipes whatever is currently on it.
+</Callout>
+
+Then you pick your country, timezone and keyboard layout. Proxmox has a decent guess at these already, so you'll usually just confirm them and move on.
+
+![Proxmox installer country, timezone and keyboard layout screen](/assets/building-a-home-server-pt2/country-timezone-keyboard.png)
+
+Now you set the root password, confirm it, and give an administrator email address. The email isn't for signing up to anything, it's just where Proxmox sends notifications, like a disk failing.
+
+![Proxmox installer credentials screen, empty](/assets/building-a-home-server-pt2/credentials-empty.png)
+
+![Proxmox installer credentials screen, filled in](/assets/building-a-home-server-pt2/credentials-filled.png)
+
+Next is network configuration. Proxmox detects your network interface and fills in a hostname, IP address, gateway and DNS server automatically.
+
+![Proxmox installer network configuration screen with default values](/assets/building-a-home-server-pt2/network-config-default.png)
+
+![Proxmox installer network configuration hostname validation error](/assets/building-a-home-server-pt2/network-hostname-error.png)
+
+<Callout kind="warn" title="Hostname needs to look like a real domain">
+Here's a gotcha: the default hostname it suggests, something like pve.example.invalid, fails validation when you hit next.
+</Callout>
+
+You need to change it to something like pve.local, or a real domain if you have one to spare.
+
+![Proxmox installer network configuration screen with a fixed hostname](/assets/building-a-home-server-pt2/network-config-fixed.png)
+
+After that you land on a summary screen showing everything you've chosen: filesystem, disk, timezone, keyboard layout, email, hostname, IP, gateway and DNS. Give it a check over, then hit install.
+
+![Proxmox installer summary screen](/assets/building-a-home-server-pt2/install-summary.png)
+
+The install itself only takes a couple of minutes. You'll see a progress bar along with the current step, like "create partitions".
+
+![Proxmox installer progress bar showing the current install step](/assets/building-a-home-server-pt2/install-progress.png)
+
+When it finishes, by default it automatically reboots.
+
+<Callout kind="warn" title="Pull the USB stick first">
+Pull the USB stick out before or during the reboot, otherwise it boots straight back into the installer instead of your new Proxmox install.
+</Callout>
+
+### First boot
+
+Once it reboots into the actual system you'll see the familiar Proxmox console banner, telling you to open a web browser and go to the URL shown, something like `https://your-server-ip:8006/`. That's the management interface you'll actually use day to day, the console is really just for troubleshooting.
+
+![Proxmox post-install console banner showing the web UI login URL](/assets/building-a-home-server-pt2/post-install-login-banner.png)
+
+You can log in at the console with the `root` user and the password you set during install, just to confirm everything's working.
+
+![Proxmox console showing a successful root login](/assets/building-a-home-server-pt2/root-login-success.png)
+
+Running `pveversion` shows the exact version you're on, handy to know when you're reading release notes or looking things up later.
+
+![Terminal output of the pveversion command](/assets/building-a-home-server-pt2/pveversion-check.png)

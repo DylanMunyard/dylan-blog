@@ -73,7 +73,7 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
 
     {tocHeadings.length > 2 && (
       <nav class="post-nav" aria-label="Table of contents" data-toc-root data-toc-read-min={readingMinutes}>
-        <div class="post-nav-header">
+        <button type="button" class="post-nav-header" data-toc-header aria-expanded="false" aria-controls="post-nav-list">
           <div class="post-nav-ring" data-toc-ring>
             <div class="post-nav-ring-inner"><span data-toc-pct>0</span></div>
           </div>
@@ -82,8 +82,9 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
             <span class="post-nav-current" data-toc-current>{tocHeadings[0].text}</span>
             <span class="post-nav-time" data-toc-time>{readingMinutes} min left</span>
           </div>
-        </div>
-        <div class="post-nav-list">
+          <span class="post-nav-toggle" aria-hidden="true">⌃</span>
+        </button>
+        <div class="post-nav-list" id="post-nav-list">
           <ul>
             {tocHeadings.map((h) => (
               <li>
@@ -113,6 +114,21 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
     const headingEls = links
       .map((link) => document.getElementById(link.dataset.tocSlug ?? ''))
       .filter((el): el is HTMLElement => el !== null);
+    const header = root.querySelector<HTMLButtonElement>('[data-toc-header]');
+    const mobileQuery = window.matchMedia('(max-width: 1599px)');
+
+    header?.addEventListener('click', () => {
+      if (!mobileQuery.matches) return;
+      const expanded = root.classList.toggle('expanded');
+      header.setAttribute('aria-expanded', String(expanded));
+    });
+
+    mobileQuery.addEventListener('change', (e) => {
+      if (!e.matches) {
+        root.classList.remove('expanded');
+        header?.setAttribute('aria-expanded', 'false');
+      }
+    });
 
     let ticking = false;
 
@@ -170,13 +186,10 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
   }
 
   .post-nav {
-    display: none;
+    display: flex;
+    flex-direction: column;
     position: fixed;
-    top: 50%;
-    left: calc(50vw + (var(--content-max) / 2) - 8px);
-    transform: translateY(-50%);
     z-index: 6;
-    width: auto;
     max-height: 80vh;
     overflow-y: auto;
     padding: 13px 15px;
@@ -186,20 +199,41 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: var(--shadow-card);
-    transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
-  }
-
-  .post-nav:hover,
-  .post-nav:focus-within {
-    width: 248px;
-    border-color: var(--line-2);
-    box-shadow: var(--shadow-raised);
+    transition: width var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
   }
 
   .post-nav-header {
     display: flex;
     align-items: center;
+    width: 100%;
     gap: 12px;
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .post-nav-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  .post-nav-toggle {
+    display: none;
+    flex: none;
+    margin-left: 4px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--fg-3);
+    transition: transform var(--dur-slow) var(--ease-out);
+  }
+
+  .post-nav.expanded .post-nav-toggle {
+    transform: rotate(180deg);
   }
 
   .post-nav-ring {
@@ -258,18 +292,13 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
   }
 
   .post-nav-list {
+    order: 1;
     max-height: 0;
     margin-top: 0;
+    margin-bottom: 0;
     overflow: hidden;
     opacity: 0;
-    transition: max-height var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out), margin-top var(--dur-slow) var(--ease-out);
-  }
-
-  .post-nav:hover .post-nav-list,
-  .post-nav:focus-within .post-nav-list {
-    max-height: 460px;
-    margin-top: 14px;
-    opacity: 1;
+    transition: max-height var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out), margin-top var(--dur-slow) var(--ease-out), margin-bottom var(--dur-slow) var(--ease-out);
   }
 
   .post-nav-list ul {
@@ -335,11 +364,78 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
     width: 0;
   }
 
-  /* Only float the nav once there's genuine breathing room beside the
-     content column (content-max + expanded width + gap on both sides). */
+  /* Only float the nav beside the content column once there's genuine
+     breathing room there (content-max + expanded width + gap on both sides).
+     Below that, it collapses into a bottom-right chip instead. */
   @media (min-width: 1600px) {
     .post-nav {
-      display: block;
+      top: 50%;
+      left: calc(50vw + (var(--content-max) / 2) - 8px);
+      right: auto;
+      bottom: auto;
+      transform: translateY(-50%);
+      width: auto;
+    }
+
+    .post-nav:hover,
+    .post-nav:focus-within {
+      width: 248px;
+      border-color: var(--line-2);
+      box-shadow: var(--shadow-raised);
+    }
+
+    .post-nav:hover .post-nav-list,
+    .post-nav:focus-within .post-nav-list {
+      max-height: 460px;
+      margin-top: 14px;
+      opacity: 1;
+    }
+
+    .post-nav-header {
+      cursor: default;
+    }
+
+    .post-nav-toggle {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 1599px) {
+    .post-nav {
+      top: auto;
+      left: auto;
+      right: 16px;
+      bottom: 20px;
+      width: auto;
+      max-width: calc(100vw - 32px);
+    }
+
+    .post-nav.expanded {
+      width: min(300px, calc(100vw - 32px));
+      border-color: var(--line-2);
+      box-shadow: var(--shadow-raised);
+    }
+
+    .post-nav-list {
+      order: -1;
+    }
+
+    .post-nav.expanded .post-nav-list {
+      max-height: 460px;
+      margin-bottom: 14px;
+      opacity: 1;
+    }
+
+    .post-nav-list ul {
+      padding-top: 0;
+      padding-bottom: 12px;
+      border-top: none;
+      border-bottom: 1px solid var(--line-1);
+    }
+
+    .post-nav-toggle {
+      display: inline-flex;
+      align-items: center;
     }
   }
 

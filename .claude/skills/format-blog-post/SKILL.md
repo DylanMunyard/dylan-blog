@@ -68,6 +68,15 @@ Working around the instructions you just resolved, reformat the draft to match t
 
 If something is genuinely ambiguous — is this line a heading or just an emphatic sentence? — leave it as plain prose rather than guessing and imposing structure that wasn't there.
 
+### The progress chip needs more than 2 headings
+
+The floating progress/TOC chip on the post page (`src/pages/posts/[...slug].astro`) only renders when the post has **more than 2** `##`/`###` headings (`tocHeadings.length > 2`, where `tocHeadings` is `##` and `###` combined). A post with only one or two top-level sections silently gets no chip — there's no warning, it just doesn't appear.
+
+After applying the rest of Step 3, count the resulting `##`/`###` headings. If there are 2 or fewer:
+- Look for a long section that's really several sequential phases run together (e.g. "download the tool" → "run the installer" → "first boot") and break it into `###` subheadings at those natural phase boundaries — the same way `arch-linux-qemu.md` splits its installer walkthrough into `### Partition the disks`, `### Format partitions`, `### Install apps from Arch User Repository (AUR)`, etc., even though the original steps ran together as one long procedure.
+- This only adds heading markers and picks heading text — it never rewords, cuts, or reorders Dylan's sentences, so it doesn't conflict with the golden rule.
+- If the draft is genuinely short/simple with no natural phase boundaries to split on, leave it as-is and mention in your reply that the post won't get a progress chip because it's under the heading threshold — don't force artificial subheadings onto content that isn't actually chunked.
+
 ## Step 4: Edit the file, then report Feedback separately
 
 Write the formatted result back to the file in place.
