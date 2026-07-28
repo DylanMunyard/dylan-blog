@@ -5,20 +5,14 @@ interface Props {
 }
 
 const { kind = 'tip', title } = Astro.props;
-
-const config = {
-  tip: { label: 'TIP', colorVar: '--success', dimVar: '--success-dim', borderVar: 'rgba(110, 231, 183, 0.25)' },
-  info: { label: 'INFO', colorVar: '--info', dimVar: '--info-dim', borderVar: 'rgba(125, 211, 252, 0.25)' },
-  warn: { label: 'WARNING', colorVar: '--warn', dimVar: '--warn-dim', borderVar: 'rgba(251, 146, 60, 0.25)' },
-  danger: { label: 'DANGER', colorVar: '--danger', dimVar: '--danger-dim', borderVar: 'rgba(253, 164, 175, 0.25)' }
-}[kind];
 ---
 
 <aside class={`callout callout-${kind}`}>
-  <div class="callout-header">
-    <span class="callout-badge">{config.label}</span>
-    {title && <span class="callout-title">{title}</span>}
-  </div>
+  {title && (
+    <div class="callout-header">
+      <span class="callout-title">{title}</span>
+    </div>
+  )}
   <div class="callout-body">
     <slot />
   </div>
@@ -57,22 +51,10 @@ const config = {
     margin-bottom: 8px;
   }
 
-  .callout-badge {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    letter-spacing: var(--tracking-wide);
-  }
-
-  .callout-tip .callout-badge { color: var(--success); }
-  .callout-info .callout-badge { color: var(--info); }
-  .callout-warn .callout-badge { color: var(--warn); }
-  .callout-danger .callout-badge { color: var(--danger); }
-
   .callout-title {
     font-family: var(--font-display);
-    font-weight: 600;
-    font-size: var(--text-sm);
+    font-weight: 700;
+    font-size: var(--text-base);
     color: var(--fg-1);
   }
 

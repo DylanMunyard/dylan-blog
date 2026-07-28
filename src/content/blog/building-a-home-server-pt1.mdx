@@ -1,0 +1,101 @@
+---
+title: "Building a home media server - Part 1"
+description: "Part 1 of a guide to build a home media server"
+date: 2024-05-12
+tags: ["media server"]
+image: "/assets/building-a-home-server/front.webp"
+---
+
+import Callout from '../../components/Callout.astro';
+
+I wanted to build my own media server to give myself a project. This documents what I wish I knew when I started the project.
+
+For starters, what hardware do I need? Is a graphics card necessary, which one? How much RAM can I get away with, what type of CPU?
+
+Yes, there are a hundred options, but if you want to get something up and running that does the job, read on.
+
+## Hardware
+No, you don't need a graphics card.
+
+### CPU
+
+But you do need hardware transcoding. When you watch media and change the quality, it gets transcoded in real time from the original resolution to the one you selected. Without hardware transcoding you'll use 100% CPU and heat it up to melting point.
+
+<Callout kind="tip" title="The hack">
+But there's a hack, you can buy Intel processors with an onboard hardware transcoder. You pay for the CPU, and get the GPU for free. Two birds with one stone.
+</Callout>
+
+The feature is known as **Intel Quick Sync Video**, you can check what processors have it here: [Intel product filter for Quick Sync Video](https://www.intel.com/content/www/us/en/ark/featurefilter.html?productType=873&0_QuickSyncVideo=True)
+
+I went with an `Intel i5 12400`. Not because it was the best, but because it ticked the boxes:
+
+- [x] Had Quick Sync Video
+- [x] Had what seemed like a good clock speed
+
+On the 'what is fast enough' point, honestly any modern CPU will do. I'd browse by price, and as long as it has Quick Sync Video, it should be fine.
+
+### RAM
+
+8G is enough to run a media server. I happen to run many other things on my server, so I went with 64GB, but originally I had only 8GB.
+
+Again, what type of RAM, it doesn't matter, DDR4 or DDR5 is plenty fast enough. Reading online will make you feel that you've mortally chosen the wrong thing, but it honestly doesn't matter because you're not using it for gaming or graphics.
+
+### Form factor
+
+This refers to the size of the motherboard. I went with mini-ITX, to keep the server physically small.
+
+The trade off against full form (ATX) can be boiled down to:
+
+| Form factor | Pros | Cons |
+|---|---|---|
+| Mini-ITX | Compact | Fewer SATA / PCIe ports |
+| ATX | More SATA / PCIe ports | Larger footprint |
+
+<Callout kind="info" title="In hindsight">
+I actually regret going with mini-ITX. Like I said I run many other things on my server, and would like to have more SATA ports, multiple PCI express lanes, but alas I have 4 SATA and 1 PCI Ex.
+</Callout>
+
+### Hard drives
+
+You can start simple here, and buy a single 4TB drive. It won't have redundancy against drive failure, so if it dies, say bye bye to your media. I went with an advanced set up here, and purchased 3 of these [Seagate IronWolf NAS drives](https://www.seagate.com/au/en/products/nas-drives/ironwolf-hard-drive/).
+
+RAID or not to RAID? Again, you could RAID, but you don't have to. I went with software RAID known as **ZFS** running in **RAIDZ1** mode. ZFS is a file system that manages multiple physical drives as a single logical volume. tldr; it combines their disk space into a single volume, and provides redundancy against drive failure. More on this in the setting-up article.
+
+You have a few things left to purchase:
+
+- A case for the server. It's aesthetic so your call
+- A power supply. 550W is plenty, I went with [this one](https://www.scorptec.com.au/product/power-supplies/atx/76086-ps-ltp-0550nhsana-1)
+- SATA cables, 1 for each drive
+
+If you choose mini-ITX, you won't have space to install the drives inside the case. Another reason to go full form factor. I went with [one of these](https://www.silverstonetek.com/en/product/info/storage/FS305/), and haven't had any issues.
+
+### What if you want more disk space?
+
+4K media fills up disk space very quickly. Buying 3 disks at a time is a deliberate choice for redundancy. If I lose a drive, it doesn't mean I lose all my media.
+
+6 disks require 6 SATA ports on the motherboard. Mine has 4, so I needed a solution.
+
+I started with [one of these](https://www.silverstonetek.com/en/product/info/expansion-cards/ECS06/), but ultimately ended up with [one of these](https://serverlabs.com.au/collections/featured/products/lsi-9240).
+
+The first one is just a SATA port multiplier, a cheap solution to give you more ports.
+
+The `LSI 9240-8i` is a hardware controller that provides better performance than a port multiplier. Go with one of these.
+
+<Callout kind="warn" title="They run hot">
+They run incredibly hot – I leave the side off my server and let the disk enclosure blow its fan onto it.
+</Callout>
+
+![Side panel removed from the home server case, exposing the disk enclosure and its cooling fan](/assets/building-a-home-server/side.webp)
+
+## Summary
+
+| Component               | What I chose                              | Why                                                                                  |
+|-------------------------|-------------------------------------------|--------------------------------------------------------------------------------------|
+| CPU                     | Intel i5 12400                            | Has Quick Sync Video for hardware transcoding, and a good clock speed                |
+| RAM                     | 64GB (DDR4 or DDR5, doesn't matter which) | Media serving only needs ~8GB; went higher to run other things on the same box       |
+| Motherboard form factor | Mini-ITX                                  | Wanted the server physically small (in hindsight, would pick ATX for more SATA/PCIe) |
+| Hard drives             | 3x Seagate IronWolf, bought as a set      | Redundancy — losing one drive doesn't mean losing all the media                      |
+| RAID                    | ZFS, RAIDZ1 mode                          | Combines the drives into one logical volume with redundancy                          |
+| Case                    | Silverstone FS305                         | Fits the drives, works with Mini-ITX                                                 |
+| Power supply            | 550W                                      | Plenty for this build                                                                |
+| SATA expansion          | LSI 9240-8i hardware controller           | Better performance than a SATA port multiplier once onboard ports run out            |
