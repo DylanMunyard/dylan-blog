@@ -16,7 +16,8 @@ export async function getStaticPaths() {
 type Props = CollectionEntry<'blog'>;
 
 const post = Astro.props;
-const { Content } = await post.render();
+const { Content, headings } = await post.render();
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
 // Format date
 const formatDate = (date: Date) => {
@@ -28,12 +29,12 @@ const formatDate = (date: Date) => {
 };
 
 // Calculate reading time
-const calculateReadingTime = (content: string) => {
+const calculateReadingMinutes = (content: string) => {
   const words = content.split(/\s+/).length;
-  const minutes = Math.ceil(words / 200);
-  return `${minutes} min read`;
+  return Math.max(1, Math.ceil(words / 200));
 };
 
+const readingMinutes = calculateReadingMinutes(post.body);
 const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
 ---
 
@@ -44,7 +45,7 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
         <a href="/" class="back-link">← all posts</a>
 
         <div class="post-header-meta">
-          {formatDate(post.data.date)} · {calculateReadingTime(post.body)}
+          {formatDate(post.data.date)} · {readingMinutes} min read
         </div>
 
         <h1 class="post-title">{post.data.title}</h1>
@@ -69,14 +70,277 @@ const bgImage = post.data.image || '/assets/backgrounds/jwst-nebula.png';
         </div>
       </article>
     </div>
+
+    {tocHeadings.length > 2 && (
+      <nav class="post-nav" aria-label="Table of contents" data-toc-root data-toc-read-min={readingMinutes}>
+        <div class="post-nav-header">
+          <div class="post-nav-ring" data-toc-ring>
+            <div class="post-nav-ring-inner"><span data-toc-pct>0</span></div>
+          </div>
+          <div class="post-nav-meta">
+            <span class="post-nav-label">On this page</span>
+            <span class="post-nav-current" data-toc-current>{tocHeadings[0].text}</span>
+            <span class="post-nav-time" data-toc-time>{readingMinutes} min left</span>
+          </div>
+        </div>
+        <div class="post-nav-list">
+          <ul>
+            {tocHeadings.map((h) => (
+              <li>
+                <a class={`post-nav-item toc-depth-${h.depth}`} href={`#${h.slug}`} data-toc-link data-toc-slug={h.slug}>
+                  <span class="post-nav-dot"></span>
+                  <span class="post-nav-item-text">{h.text}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
+    )}
   </ParallaxBackdrop>
 </BaseLayout>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-toc-root]');
+
+  if (root) {
+    const readMin = Number(root.dataset.tocReadMin ?? '0');
+    const ring = root.querySelector<HTMLElement>('[data-toc-ring]');
+    const pctEl = root.querySelector<HTMLElement>('[data-toc-pct]');
+    const currentEl = root.querySelector<HTMLElement>('[data-toc-current]');
+    const timeEl = root.querySelector<HTMLElement>('[data-toc-time]');
+    const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-toc-link]'));
+    const headingEls = links
+      .map((link) => document.getElementById(link.dataset.tocSlug ?? ''))
+      .filter((el): el is HTMLElement => el !== null);
+
+    let ticking = false;
+
+    const recompute = () => {
+      ticking = false;
+
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      const pct = Math.round(progress * 100);
+
+      let activeIdx = 0;
+      headingEls.forEach((el, i) => {
+        if (el.getBoundingClientRect().top <= 140) activeIdx = i;
+      });
+
+      if (ring) ring.style.background = `conic-gradient(var(--accent) ${pct * 3.6}deg, var(--line-2) 0)`;
+      if (pctEl) pctEl.textContent = String(pct);
+      if (currentEl) currentEl.textContent = links[activeIdx]?.textContent?.trim() ?? '';
+      if (timeEl) timeEl.textContent = `${Math.max(0, Math.ceil(readMin * (1 - progress)))} min left`;
+
+      links.forEach((link, i) => link.classList.toggle('active', i === activeIdx));
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(recompute);
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    requestAnimationFrame(recompute);
+
+    for (const link of links) {
+      link.addEventListener('click', (e) => {
+        const slug = link.dataset.tocSlug;
+        const target = slug ? document.getElementById(slug) : null;
+        if (target) {
+          e.preventDefault();
+          const top = target.getBoundingClientRect().top + window.scrollY - 96;
+          window.scrollTo({ top, behavior: 'smooth' });
+          history.pushState(null, '', `#${slug}`);
+        }
+      });
+    }
+  }
+</script>
 
 <style>
   .post-container {
     max-width: var(--content-max);
     margin: 0 auto;
     padding: 72px 24px 96px;
+  }
+
+  .post-nav {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: calc(50vw + (var(--content-max) / 2) - 8px);
+    transform: translateY(-50%);
+    z-index: 6;
+    width: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 13px 15px;
+    border-radius: 13px;
+    border: 1px solid var(--line-1);
+    background: rgba(17, 23, 38, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--shadow-card);
+    transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+  }
+
+  .post-nav:hover,
+  .post-nav:focus-within {
+    width: 248px;
+    border-color: var(--line-2);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .post-nav-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .post-nav-ring {
+    position: relative;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    transition: background var(--dur-base) linear;
+  }
+
+  .post-nav-ring-inner {
+    position: absolute;
+    inset: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-3);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--fg-1);
+  }
+
+  .post-nav-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .post-nav-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .post-nav-current {
+    max-width: 158px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--fg-1);
+  }
+
+  .post-nav-time {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--fg-3);
+  }
+
+  .post-nav-list {
+    max-height: 0;
+    margin-top: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out), margin-top var(--dur-slow) var(--ease-out);
+  }
+
+  .post-nav:hover .post-nav-list,
+  .post-nav:focus-within .post-nav-list {
+    max-height: 460px;
+    margin-top: 14px;
+    opacity: 1;
+  }
+
+  .post-nav-list ul {
+    list-style: none;
+    margin: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-1);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .post-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+
+  .post-nav-item.toc-depth-3 {
+    padding-left: 26px;
+  }
+
+  .post-nav-item.active {
+    background: var(--accent-dim);
+  }
+
+  .post-nav-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line-2);
+    transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+
+  .post-nav-item.active .post-nav-dot {
+    background: var(--accent);
+    box-shadow: 0 0 8px 1px rgba(96, 165, 250, 0.75);
+  }
+
+  .post-nav-item-text {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--fg-2);
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  .post-nav-item.toc-depth-3 .post-nav-item-text {
+    font-size: 12px;
+  }
+
+  .post-nav-item.active .post-nav-item-text {
+    color: var(--fg-1);
+  }
+
+  .post-nav::-webkit-scrollbar {
+    width: 0;
+  }
+
+  /* Only float the nav once there's genuine breathing room beside the
+     content column (content-max + expanded width + gap on both sides). */
+  @media (min-width: 1600px) {
+    .post-nav {
+      display: block;
+    }
   }
 
   .post-scrim {

@@ -163,6 +163,7 @@ a:hover {
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
   color: var(--fg-1);
+  scroll-margin-top: 96px;
 }
 
 .post-content h3 {
@@ -172,6 +173,7 @@ a:hover {
   font-size: var(--text-xl);
   line-height: var(--leading-snug);
   color: var(--fg-1);
+  scroll-margin-top: 96px;
 }
 
 .post-content p {
