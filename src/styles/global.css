@@ -382,6 +382,13 @@ a:hover {
   padding: 24px;
 }
 
+.diagram-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 40px;
+}
+
 .code-modal-body pre {
   margin: 0 !important;
   background: transparent !important;

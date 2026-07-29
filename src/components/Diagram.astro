@@ -1,0 +1,243 @@
+---
+interface Props {
+  chart: string;
+  label?: string;
+  blur?: boolean;
+}
+
+const { chart, label = 'diagram', blur = false } = Astro.props;
+---
+
+<figure class="diagram-card" data-label={label} data-blur={blur ? 'true' : 'false'}>
+  <div class="diagram-header">
+    <span class="diagram-label">{label}</span>
+    <button type="button" class="diagram-expand-btn">⤢ fullscreen</button>
+  </div>
+  <div class="diagram-preview">
+    <pre class="mermaid">{chart}</pre>
+    {blur && (
+      <div class="diagram-scrim">
+        <span class="diagram-scrim-label">{label}</span>
+        <div class="diagram-view-pill">
+          <span class="diagram-view-icon">⤢</span>
+          <span>View</span>
+        </div>
+      </div>
+    )}
+  </div>
+</figure>
+
+<style>
+  .diagram-card {
+    margin: 28px 0;
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .diagram-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: rgba(24, 32, 52, 0.6);
+    border-bottom: 1px solid var(--line-1);
+  }
+
+  .diagram-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .diagram-expand-btn {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--fg-3);
+    background: rgba(24, 32, 52, 0.6);
+    border: 1px solid var(--line-1);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px 10px;
+    transition: all 0.18s var(--ease-out);
+  }
+
+  .diagram-expand-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .diagram-preview {
+    position: relative;
+    cursor: zoom-in;
+    min-height: 220px;
+    overflow: auto;
+  }
+
+  .diagram-preview :global(pre.mermaid) {
+    margin: 0;
+    padding: 8px 20px 20px;
+    background: transparent !important;
+    border: none !important;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Blurred mode: hide the diagram behind a scrim until the reader opts into fullscreen.
+     No need to reserve the diagram's full natural height since it's never read here — crop
+     it down to a short teaser band instead. */
+  .diagram-card[data-blur='true'] .diagram-preview {
+    min-height: 0;
+    max-height: 160px;
+    overflow: hidden;
+  }
+
+  .diagram-card[data-blur='true'] .diagram-preview :global(pre.mermaid svg) {
+    filter: blur(5px) saturate(0.85) brightness(0.78);
+    transition: transform 0.5s var(--ease-out);
+    pointer-events: none;
+  }
+
+  .diagram-card[data-blur='true'] .diagram-preview:hover :global(pre.mermaid svg) {
+    transform: scale(1.015);
+  }
+
+  .diagram-scrim {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(9, 14, 26, 0.42);
+    transition: background 0.3s var(--ease-out);
+  }
+
+  .diagram-preview:hover .diagram-scrim {
+    background: radial-gradient(600px 300px at 50% 50%, rgba(96, 165, 250, 0.14), rgba(9, 14, 26, 0.55) 70%);
+  }
+
+  .diagram-scrim-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .diagram-view-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 19px;
+    color: var(--fg-1);
+    padding: 11px 22px;
+    border-radius: 12px;
+    border: 1px solid var(--line-2);
+    background: rgba(17, 23, 38, 0.86);
+    box-shadow: var(--shadow-card);
+    transition: all 0.22s var(--ease-out);
+  }
+
+  .diagram-preview:hover .diagram-view-pill {
+    border-color: var(--accent);
+    box-shadow: var(--glow-accent), var(--shadow-raised);
+    transform: translateY(-2px);
+  }
+
+  .diagram-view-icon {
+    color: var(--accent);
+    font-size: 22px;
+    line-height: 1;
+  }
+</style>
+
+<script>
+  function initDiagrams() {
+    document.querySelectorAll<HTMLElement>('.diagram-card:not([data-diagram-init])').forEach((card) => {
+      card.setAttribute('data-diagram-init', 'true');
+
+      const pre = card.querySelector<HTMLPreElement>('pre.mermaid');
+      const preview = card.querySelector<HTMLElement>('.diagram-preview');
+      const expandBtn = card.querySelector<HTMLButtonElement>('.diagram-expand-btn');
+      const label = card.getAttribute('data-label') || 'diagram';
+      if (!pre || !preview || !expandBtn) return;
+
+      const openFullscreen = () => {
+        const svg = pre.querySelector('svg');
+        if (!svg) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'code-modal-backdrop';
+
+        const modalHeader = document.createElement('div');
+        modalHeader.className = 'code-modal-header';
+
+        const modalTitleSpan = document.createElement('span');
+        modalTitleSpan.className = 'code-modal-title';
+        modalTitleSpan.textContent = `Diagram — ${label.toUpperCase()}`;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'code-modal-close';
+        closeBtn.textContent = '✕ Close (Esc)';
+
+        modalHeader.appendChild(modalTitleSpan);
+        modalHeader.appendChild(closeBtn);
+
+        const modalBody = document.createElement('div');
+        modalBody.className = 'code-modal-body diagram-modal-body';
+
+        const svgClone = svg.cloneNode(true) as SVGElement;
+        svgClone.removeAttribute('style');
+        (svgClone as unknown as HTMLElement).style.width = '100%';
+        (svgClone as unknown as HTMLElement).style.maxWidth = '1100px';
+        (svgClone as unknown as HTMLElement).style.height = 'auto';
+
+        modalBody.appendChild(svgClone);
+        backdrop.appendChild(modalHeader);
+        backdrop.appendChild(modalBody);
+
+        document.body.appendChild(backdrop);
+        document.body.style.overflow = 'hidden';
+
+        const closeModal = () => {
+          backdrop.remove();
+          document.body.style.overflow = '';
+          document.removeEventListener('keydown', handleKeyDown);
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') closeModal();
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        backdrop.addEventListener('click', (ev) => {
+          if (ev.target === backdrop) closeModal();
+        });
+        document.addEventListener('keydown', handleKeyDown);
+      };
+
+      preview.addEventListener('click', openFullscreen);
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openFullscreen();
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDiagrams);
+  } else {
+    initDiagrams();
+  }
+  document.addEventListener('astro:page-load', initDiagrams);
+</script>

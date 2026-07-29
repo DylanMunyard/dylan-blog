@@ -1,0 +1,118 @@
+---
+title: "Building a home media server - Part 3"
+description: "Part 3 - installing the media server apps"
+date: 2026-07-29
+tags: ["media server"]
+image: "/assets/building-a-home-server-pt3/background.webp"
+---
+
+import Diagram from '../../components/Diagram.astro';
+import Gallery from '../../components/Gallery.astro';
+
+Now we need to install a media player to watch media, apps to find media, and apps to download them.
+
+There's a bit to cover here. I'll explain the core concepts in this post, as well as "hygiene" to keep your identity
+anonymous. 
+
+## Movies and TV
+
+The apps to find content are known as the arr* apps. Sonarr and Radarr let you browse for TV and Movies, Lidarr for music. 
+There are [more](https://github.com/Ravencentric/awesome-arr). 
+
+You use the arr* app to find media, it manages finding it, downloading it, and importing it into the media player.
+
+Here's how the pieces fit together, using Sonarr as the example (Radarr works the same way, just for movies):
+
+<Diagram label="arr* stack" blur chart={`%%{init: {
+  "themeVariables": {
+    "lineColor": "#60a5fa",
+    "edgeLabelBackground": "#111726",
+    "textColor": "#eaf1fb"
+  }
+} }%%
+graph LR
+    User([You])
+
+    Sonarr@{ img: "/assets/building-a-home-server-pt3/sonarr.png", label: "Sonarr", pos: "b", w: 60, h: 60, constraint: "on" }
+    Jackett@{ img: "/assets/building-a-home-server-pt3/jackett-logo.png", label: "Jackett", pos: "b", w: 60, h: 60, constraint: "on" }
+    SabNZBD@{ img: "/assets/building-a-home-server-pt3/sabnzb.png", label: "SabNZBD", pos: "b", w: 60, h: 60, constraint: "on" }
+    Plex@{ img: "/assets/building-a-home-server-pt3/plex-logo.png", label: "Plex", pos: "b", w: 60, h: 60, constraint: "on" }
+
+    User -->|browse & request| Sonarr
+    Sonarr -->|search indexers| Jackett
+    Jackett -->|search results| Sonarr
+    Sonarr -->|send download| SabNZBD
+    SabNZBD -->|downloaded file| Sonarr
+    Sonarr -->|import & rename| Plex
+    Plex -->|stream| User
+
+    linkStyle 0 stroke:#60a5fa,stroke-width:2px,color:#60a5fa
+    linkStyle 1 stroke:#60a5fa,stroke-width:2px,color:#60a5fa
+    linkStyle 2 stroke:#fb923c,stroke-width:2px,color:#fb923c
+    linkStyle 3 stroke:#60a5fa,stroke-width:2px,color:#60a5fa
+    linkStyle 4 stroke:#fb923c,stroke-width:2px,color:#fb923c
+    linkStyle 5 stroke:#60a5fa,stroke-width:2px,color:#60a5fa
+    linkStyle 6 stroke:#6ee7b7,stroke-width:2px,color:#6ee7b7`} />
+
+<Gallery items={[
+  { src: '/assets/building-a-home-server-pt3/sonarr_background.webp', title: 'Sonarr — Series library', kicker: 'web UI', caption: 'The Sonarr dashboard for browsing and managing the TV series library, with monitored state and quality profile visible per poster.' },
+  { src: '/assets/building-a-home-server-pt3/radarr_ui.webp', title: 'Radarr — Movie library', kicker: 'web UI', caption: 'Radarr mirrors the same layout and toolbar — same design language, just for films instead of series.' },
+]} />
+
+## Jackett
+For Sonarr and Radarr to communicate with the indexers, you should install Jackett. Think of it like a reverse proxy for indexers.
+It's handy because Jackett is designed to talk to indexers, handling all their weird and wonderful quirks, such as their
+authentication. It's because the indexers are all built differently, some don't even have an API, instead you need to use their web
+interface to search. Jackett is basically a headless browser that logs in, performs a search, then massages the results
+into JSON. Think of it as the API wrapper around any indexer.
+
+## Indexers 
+These are the sites where users upload their media:
+- Torrent sites
+- Usenet 
+
+Usenet is the one you may not have heard of. Read about it [here](https://www.reddit.com/r/usenet/comments/18q7r0f/usenet_starter_guide/). 
+
+Torrents are free, you sign up to the tracker and just need to upload as much as you download. 
+
+Usenet is subscription-based. You choose a 'usenet' provider, and you download from their servers. 
+
+So now you know what you're looking for, you can choose the right ones for you. Google
+"Usenet providers" to find a provider. 
+
+For torrents, the general term is called "the scene". It's the web of sites that get progressively more difficult
+to access and is based on who you know, and your contribution to "the scene". 
+
+There are public trackers, and then many more private ones, usually specialising in particular content (e.g. TV, Movies, anime etc).
+
+This is where I did the most research. I found [opentrackers.org](https://opentrackers.org/) that listed tracker events, 
+where public registrations would be opened for a limited time. I was patient and found my way into some of the larger private ones. 
+
+Then I found [this site](https://lemmy.dbzer0.com/c/trackers?dataType=Post&page=1&sort=New) that had some good information
+about getting access to a tracker. 
+
+### Usenet indexers
+Usenet is the network where files are stored. But you need a way to search the network. For this you need to pay for
+another service called a Usenet indexer.  
+
+[This Reddit wiki](https://www.reddit.com/r/usenet/wiki/indexers/) lists a bunch. 
+
+## VPN
+Yes, you need to use one. When you download something, it's a trace back to your IP.
+- Torrents list the other peers downloading or seeding (uploading) the content. Their IPs are visible to everyone 
+downloading the same content.
+- Usenet is centralised. The news hosting provider you signed up with will see your IP as you grab something.
+
+Using a VPN will anonymise your IP and won't trace back to your ISP. I use Private Internet Access, but do your research;
+as long as they provide fast connections that match your internet plan, it doesn't matter who you choose. 
+
+## Burner email
+Set up a new GMail account that you'll use to sign up to all the indexers and Usenet subscriptions. You'll come to see
+that the community is cobbled together with sticky tape and single administrators. Using a burner email means if there's
+a leak, your burner email won't link back to you.
+
+## Next article
+I'll cover installing the apps in Proxmox, and how to configure them. That will be enough to have a media server
+running locally that you can watch things from within your home network. Further posts will cover making the media
+server accessible from anywhere.
+

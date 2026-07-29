@@ -37,6 +37,8 @@ const { title, description = 'Technical blog by Dylan Munyard' } = Astro.props;
     <script>
       // 1. Clickable Images -> Open native image in new tab for raw browser zoom
       document.querySelectorAll<HTMLImageElement>('.post-content img').forEach((img) => {
+        if (img.closest('.gallery-grid')) return;
+
         img.title = 'Click to open full-size image';
         img.addEventListener('click', () => {
           window.open(img.src, '_blank');
@@ -46,6 +48,7 @@ const { title, description = 'Technical blog by Dylan Munyard' } = Astro.props;
       // 2. Fullscreen Code Viewer Modal with Dedicated Header Bar
       document.querySelectorAll<HTMLPreElement>('.post-content pre').forEach((pre) => {
         if (pre.closest('.code-block-wrapper')) return;
+        if (pre.classList.contains('mermaid')) return;
 
         // Detect language
         const langClass = Array.from(pre.classList).find(c => c.startsWith('lang-') || c.startsWith('language-'));
