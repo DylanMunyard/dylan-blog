@@ -622,7 +622,7 @@ function Home({
       color: 'var(--fg-1)',
       maxWidth: 800
     }
-  }, "Notes on servers, VMs and the terminal."), /*#__PURE__*/React.createElement("p", {
+  }, "Dylan's blog | Senior Consultant @ SixPivot."), /*#__PURE__*/React.createElement("p", {
     style: {
       margin: '20px 0 0',
       fontFamily: 'var(--font-body)',

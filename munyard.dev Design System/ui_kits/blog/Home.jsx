@@ -11,8 +11,8 @@ function Home({onOpenPost}){
   return <div>
     <section style={{maxWidth:'var(--page-max)',margin:'0 auto',padding:'96px 32px 64px'}}>
       <div style={{fontFamily:'var(--font-mono)',fontWeight:500,fontSize:'var(--text-xs)',letterSpacing:'var(--tracking-wide)',textTransform:'uppercase',color:'var(--amber)'}}>~ a lab notebook</div>
-      <h1 style={{margin:'16px 0 0',fontFamily:'var(--font-display)',fontWeight:700,fontSize:'var(--text-4xl)',lineHeight:'var(--leading-tight)',letterSpacing:'var(--tracking-tight)',color:'var(--fg-1)',maxWidth:800}}>Notes on servers, VMs and the terminal.</h1>
-      <p style={{margin:'20px 0 0',fontFamily:'var(--font-body)',fontSize:'var(--text-lg)',lineHeight:1.6,color:'var(--fg-2)',maxWidth:'56ch'}}>I'm Dylan. I write down what I break and how I fix it — Arch installs, Kubernetes deploys, web servers, shells.</p>
+      <h1 style={{margin:'16px 0 0',fontFamily:'var(--font-display)',fontWeight:700,fontSize:'var(--text-4xl)',lineHeight:'var(--leading-tight)',letterSpacing:'var(--tracking-tight)',color:'var(--fg-1)',maxWidth:800}}>Dylan's blog | Senior Consultant @ SixPivot.</h1>
+      <p style={{margin:'20px 0 0',fontFamily:'var(--font-body)',fontSize:'var(--text-lg)',lineHeight:1.6,color:'var(--fg-2)',maxWidth:'56ch'}}>I'm Dylan. Senior consultant @ SixPivot</p>
       <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:36}}>
         {cats.map(c=><Tag key={c} active={filter===c} onClick={()=>setFilter(c)} color={filter===c?undefined:'neutral'}>{c}</Tag>)}
       </div>
