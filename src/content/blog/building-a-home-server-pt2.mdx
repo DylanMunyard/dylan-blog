@@ -1,7 +1,7 @@
 ---
 title: "Building a home media server - Part 2"
 description: "Part 2 - choosing an operating system, setting up the disks in RAID configuration"
-date: 2026-07-28
+date: 2026-07-29
 tags: ["media server"]
 image: "/assets/building-a-home-server-pt2/building-home-server-pt2.webp"
 ---
@@ -103,3 +103,78 @@ You can log in at the console with the `root` user and the password you set duri
 Running `pveversion` shows the exact version you're on, handy to know when you're reading release notes or looking things up later.
 
 ![Terminal output of the pveversion command](/assets/building-a-home-server-pt2/pveversion-check.png)
+
+## Set up Disks
+
+Proxmox is a variant of the Debian distribution. This is handy to remember because it means you'll use `apt` as the package manager
+to install things.
+
+1. Install ZFS
+
+```bash
+apt update
+apt install zfsutils-linux
+```
+
+2. Verify installation
+
+```bash
+zfs --version
+```
+
+### Initial Pool Creation with 3 Disks
+
+3. Find your disk IDs
+
+```bash
+ls -l /dev/disk/by-id/ | grep -v part
+```
+
+4. Create RAIDZ1 pool with 3 disks
+
+```bash
+zpool create media-tank raidz1 \
+/dev/disk/by-id/ata-DISK1_SERIAL \
+/dev/disk/by-id/ata-DISK2_SERIAL \
+/dev/disk/by-id/ata-DISK3_SERIAL
+```
+
+5. Verify pool creation
+
+```bash
+zpool status
+zpool list
+```
+
+This auto-mounts the ZFS pool at `/media-tank`. This is where you will store your media.
+
+### Expanding pool with new disks
+
+Expanding the pool requires 3 new disks at a time (1 can die without losing files).
+
+1. Find the new disk IDs
+
+```bash
+ls -l /dev/disk/by-id/ | grep -v part
+```
+
+2. Add new RAIDZ1 vdev to existing pool
+
+```bash
+zpool add media-tank raidz1 \
+/dev/disk/by-id/ata-NEWDISK1_SERIAL \
+/dev/disk/by-id/ata-NEWDISK2_SERIAL \
+/dev/disk/by-id/ata-NEWDISK3_SERIAL
+```
+
+3. Verify expansion
+
+```bash
+zpool status
+zpool list
+```
+
+`df -h | grep media-tank` is a quick way to see used % and available %.
+
+At this point you're ready to run apps like the media player, and the tools to download media files. The next article
+will cover this.
