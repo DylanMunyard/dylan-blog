@@ -198,7 +198,8 @@ const { items, minCol = 260, aspect = '16 / 10', captions = true } = Astro.props
     display: flex;
     align-items: center;
     gap: 22px;
-    max-width: 1240px;
+    max-width: 100%;
+    max-height: 100%;
     width: 100%;
     justify-content: center;
     animation: gallery-lb-pop 0.22s var(--ease-out);
@@ -240,11 +241,17 @@ const { items, minCol = 260, aspect = '16 / 10', captions = true } = Astro.props
     flex-direction: column;
     gap: 18px;
     min-width: 0;
-    flex: 1 1 auto;
-    max-width: 1040px;
+    min-height: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+    max-height: 100%;
   }
 
   .gallery-lightbox-img-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
     border: 1px solid var(--line-2);
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -254,8 +261,10 @@ const { items, minCol = 260, aspect = '16 / 10', captions = true } = Astro.props
 
   .gallery-lightbox-img-wrap img {
     display: block;
-    width: 100%;
-    max-height: 68vh;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100vh - 220px);
     object-fit: contain;
     background: var(--bg-0);
   }

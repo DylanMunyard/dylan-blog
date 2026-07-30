@@ -1,0 +1,310 @@
+---
+title: "Building a home media server - Part 4"
+description: "Part 4 - installing the media server apps"
+date: 2026-07-30
+tags: ["media server"]
+image: "/assets/building-a-home-server-pt4/background.webp"
+---
+
+import Callout from '../../components/Callout.astro';
+import Gallery from '../../components/Gallery.astro';
+
+This article goes through running the apps on Proxmox, and running a VPN to anonymise all the traffic. 
+
+## Proxmox LXCs
+Proxmox is a virtualisation host. So you can deploy VMs on it, as well as Linux Containers (LXC). The second is what we'll use. 
+
+Proxmox LXCs are the lightweight version of VMs. VMs are about emulation. They emulate the whole machine. 
+Proxmox LXCs still run an operating system, but they are running directly on the host inside a namespace (cgroup). 
+
+To create a LXC, you need a template to create it from. To do this, log in to Proxmox via the terminal (SSH or plug in a keyboard and monitor to the server).
+
+### Download a template
+Use `pveam` cli to install a template
+
+```bash
+pveam update              # refresh available template list
+pveam available           # list all templates (add -section system for OS templates)
+pveam download local <template-name>   # download to local storage
+```
+
+Example
+```bash
+pveam available | grep debian
+pveam download local debian-12-turnkey-zoneminder_18.0-1_amd64.tar.gz
+```
+
+### Deploy LXC
+Log in to Proxmox (the URL is shown when you log in via the terminal — see [Part 2](/posts/building-a-home-server-pt2) for installing and logging in to Proxmox and finding the web URL).
+
+- Expand `Datacentre` and your server will be listed there, mine is called Bethany.
+- Right mouse-click your server node -> Create CT
+- **Uncheck "Unprivileged container:"**
+
+![Proxmox right-click context menu showing the Create CT option on the server node](/assets/building-a-home-server-pt4/create-lxc.webp)
+
+- Put in a password and click next. Then you need to choose a Template, this is basically what OS you'll run. 
+
+![Proxmox CT template selection screen](/assets/building-a-home-server-pt4/choose-ct-template.webp)
+
+- Choose the template you downloaded
+
+<Callout kind="tip" title="Using a different distro">
+If you're more familiar with another Linux distribution, download that template and use it to create your CT.
+</Callout>
+
+As you click through, you can tweak memory, CPU, storage. This is resource management, because it's virtual you're not actually
+allocating that much memory, just how much the VM will see. I tend to allocate the same memory and CPU as my host. 
+
+This will create a new VM, stopped by default. Now you need to start it. 
+- Click it beneath the server node. 
+- At the top right click Start
+- Wait for it to start, it will have a green icon on the VM under the server node
+- Click Console
+- Log in with `root` | `the password you set`
+
+<Gallery items={[
+  { src: "/assets/building-a-home-server-pt4/stopped-ct.webp", alt: "New LXC container listed under the server node, stopped by default" },
+  { src: "/assets/building-a-home-server-pt4/console.webp", alt: "Proxmox console after logging in as root" },
+]} />
+
+At this point you have a VM running Debian where you will install the media server apps. 
+
+You have lots of options at this point. 1 VM per app, 1 VM for all the apps, 1 VM for the arr* apps, 1 VM for the media server. 
+
+<Callout kind="tip" title="Splitting apps across VMs">
+If you don't care, run them all inside the same VM, but as you grow more experienced, you may want to separate them 
+into their own VMs. The typical driver behind splitting them is resource constraints. Especially on 8GB, you might
+want to have a 512MB VM just for the arrs, and a VM with 6G and more CPUs for the media server.
+</Callout>
+
+### Give your VM a static IP
+Proxmox uses a virtual networking stack to give VMs their own address space, and uses a bridge to make the VMs accessible
+from the host. That means you can access your VM via an IP on your host network, e.g. `192.168.1.212`. 
+
+Finding the host network IP can be tricky, it's not shown in the Proxmox UI. So its best practice to assign a static IP to your VM
+that comes from your home network. So if your home network is in the `192.168.1.*` range, assign a static IP `192.168.1.88`
+and that is your VM's IP. Find your home network range by running `ip a` (Linux) or `ipconfig` (Windows) to find your IP. 
+
+In the Proxmox UI, select the VM > Network > Edit the network device:
+
+![Proxmox CT network device configuration screen](/assets/building-a-home-server-pt4/ct-networking.webp)
+
+- Check IPv4: Static
+- Enter `192.168.1.88/24` in IPv4/CIDR
+- Gateway: `192.168.1.1`
+
+Restart your VM and it will come back online with that IP.
+
+<Callout kind="tip" title="See it in action">
+To see this in practice, run a simple web site within the VM then access it from the static IP
+
+```bash
+mkdir -p /tmp/www && echo "OK" > /tmp/www/index.html
+cd /tmp/www && python3 -m http.server 8000
+```
+
+Open `192.168.1.88:8000` from your laptop and it will show `OK`.
+</Callout>
+
+This is important, it sets up the building blocks for everything you'll need to run the media server. 
+
+## Running Apps
+<Callout kind="info" title="From now on ..">
+Run all of the following from within your VM
+</Callout>
+
+Go with Docker for running apps. It's the best supported runtime for every app you'll need.
+
+### Create a non-root user
+<Callout kind="warn" title="Don't stay logged in as root">
+The VM is running root by default. The best practice would be to create a new user, and log in with them:
+</Callout>
+
+```bash
+adduser dylan # just put in your name, ignore the rest
+```
+
+![Terminal after creating a new non-root user with adduser](/assets/building-a-home-server-pt4/addinguser.webp)
+
+```bash
+usermod -aG sudo dylan # give them sudo access
+apt update && apt install sudo # install sudo command
+exit # will log you out, log back in with the new user
+```
+
+### Disable AppArmor
+Docker by nature requires kernel access on the host. We need to disable the security features that will prevent this.
+
+1. Access the Proxmox host via terminal
+2. `nano /etc/pve/lxc/100.conf`
+3. Use the arrow keys to select the last line, hit enter to create a new one
+4. Paste `lxc.apparmor.profile: unconfined`
+5. Type `ctrl + o` then hit `Enter` to save
+6. Type `ctrl + x` to exit
+
+Reboot the VM. This change disables AppArmor confinement for the VM. 
+
+### Install Docker
+<Callout kind="tip" title="Same steps as installing on Debian directly">
+Because your VM is running Debian you can read the Debian docs for installing Debian, [here](https://docs.docker.com/engine/install/debian/)
+</Callout>
+
+```bash
+# Add Docker's official GPG key:
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl status docker
+sudo docker run hello-world
+```
+
+The last step will probably fail, permission denied. You need to read 
+[Linux post-installation steps for Docker Engine](https://docs.docker.com/engine/install/linux-postinstall/).
+
+```bash
+sudo groupadd docker
+sudo usermod -aG docker $USER
+exit # log out and back in again
+docker run hello-world # should work now
+```
+
+## Docker Compose
+Docker compose lets you manage multiple containers declaratively in a single file `compose.yaml`. It has some handy features that make
+it simple for the different apps to reach each other. 
+
+To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
+
+We are going to create a `compose.yml` file on the VM containing all the **arrs** as well as the download clients. 
+
+```yaml
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-jackett:/config
+      - /media-data/downloads:/downloads
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+    networks:
+      - arrs
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-sonarr:/config
+      - /media-data/tv:/tv
+      - /media-data/downloads:/downloads
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    networks:
+      - arrs
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-radarr:/config
+      - /media-data/movies:/movies
+      - /media-data/downloads:/downloads
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    networks:
+      - arrs
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-sabnzbd:/config
+      - /media-data/downloads:/downloads
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+    networks:
+      - arrs
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Australia/Brisbane
+      - USER=admin
+      - PASS=GiPztGcP8Yk8cZhraffwfjjZYiHahRnD3bjLUZqi6uoe4Abw
+    volumes:
+      - /media-data/config-transmission:/config
+      - /media-data/downloads:/downloads
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
+    networks:
+      - arrs
+  unpackerr:
+    image: golift/unpackerr
+    volumes:
+      - /media-data/downloads/complete:/downloads
+    user: 0:0
+    environment:
+      - TZ=Australia/Brisbane
+      - UN_QUIET=false
+      - UN_DEBUG=false
+      - UN_ERROR_STDERR=false
+      - UN_LOG_QUEUES=1m
+      - UN_LOG_FILES=10
+      - UN_LOG_FILE_MB=10
+      - UN_INTERVAL=2m
+      - UN_START_DELAY=1m
+      - UN_RETRY_DELAY=5m
+      - UN_MAX_RETRIES=3
+      - UN_PARALLEL=1
+      - UN_FILE_MODE=0644
+      - UN_DIR_MODE=0755
+      - UN_ACTIVITY=false
+      - UN_SONARR_0_URL=http://sonarr:8989
+      - UN_SONARR_0_API_KEY=PUT-SONARR-API-KEY-HERE
+      - UN_RADARR_0_URL=http://radarr:7878
+      - UN_RADARR_0_API_KEY=PUT-RADARR-API-KEY-HERE
+    restart: unless-stopped
+    networks:
+      - arrs
+networks:
+  arrs: null
+
+```

@@ -1,0 +1,133 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+
+interface Part {
+  slug: string;
+  part: number;
+  title: string;
+}
+
+const currentMatch = slug.match(/^(.*)-pt(\d+)$/i);
+
+let parts: Part[] = [];
+let seriesTitle = '';
+
+if (currentMatch) {
+  const [, base] = currentMatch;
+  const partRegex = new RegExp(`^${base}-pt(\\d+)$`, 'i');
+
+  const posts = await getCollection('blog');
+  parts = posts
+    .map((post): Part | null => {
+      const m = post.slug.match(partRegex);
+      return m ? { slug: post.slug, part: Number(m[1]), title: post.data.title } : null;
+    })
+    .filter((p): p is Part => p !== null)
+    .sort((a, b) => a.part - b.part);
+
+  const currentTitle = parts.find((p) => p.slug === slug)?.title ?? '';
+  seriesTitle = currentTitle.replace(/\s*[-–—:]\s*part\s*\d+\s*$/i, '').trim() || currentTitle;
+}
+---
+
+{parts.length > 1 && (
+  <nav class="series-strip" aria-label="Series navigation">
+    <span class="series-title">{seriesTitle}</span>
+    <ol class="series-steps">
+      {parts.map((p) => (
+        <li>
+          {p.slug === slug ? (
+            <span class="series-step series-step-current" aria-current="page">
+              <span class="series-dot"></span>
+              Part {p.part}
+            </span>
+          ) : (
+            <a class="series-step" href={`/posts/${p.slug}`}>
+              <span class="series-dot"></span>
+              Part {p.part}
+            </a>
+          )}
+        </li>
+      ))}
+    </ol>
+  </nav>
+)}
+
+<style>
+  .series-strip {
+    margin: 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .series-title {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--fg-3);
+  }
+
+  .series-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .series-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-1);
+    background: var(--bg-2);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+  }
+
+  a.series-step:hover {
+    border-color: var(--line-2);
+    background: var(--bg-3);
+    color: var(--fg-1);
+    text-decoration: none;
+  }
+
+  .series-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line-2);
+  }
+
+  .series-step-current {
+    background: var(--accent-dim);
+    border-color: var(--accent-strong);
+    color: var(--fg-1);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .series-step-current .series-dot {
+    background: var(--accent);
+    box-shadow: 0 0 8px 1px rgba(96, 165, 250, 0.6);
+  }
+</style>
