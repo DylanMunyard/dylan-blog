@@ -226,7 +226,8 @@ it simple for the different apps to reach each other.
 
 To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
 
-We are going to create a `compose.yml` file on the LXC containing all the **arrs** as well as the download clients. 
+Create `~/compose.yaml` and paste the following (`nano ~/compose.yaml`). This is the Docker compose stack that runs
+all the arrs* and download clients.
 
 ```yaml
 services:
@@ -350,7 +351,7 @@ networks:
 Bring the whole stack up:
 
 ```bash
-docker compose up -d
+cd ~ && docker compose up -d
 ```
 
 The `-d` just detaches it from your terminal — it isn't what makes the stack survive a reboot. That comes from
