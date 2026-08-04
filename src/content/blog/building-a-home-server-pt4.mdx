@@ -11,6 +11,18 @@ import Gallery from '../../components/Gallery.astro';
 
 This article goes through running the apps on Proxmox, and running a VPN to anonymise all the traffic. 
 
+<Callout kind="tip" title="Want to skip the typing?">
+Everything below is also a script: [setup.sh](/assets/building-a-home-server-pt4/setup.sh). Read it first, change the
+config block at the top to match your own network, then run it on the Proxmox host as root:
+
+```bash
+CT_PASSWORD='...' TRANSMISSION_PASS='...' ./setup.sh
+```
+
+It's safe to run more than once, and it prints the handful of steps it can't do for you at the end. The rest of this
+post explains what it's doing and why.
+</Callout>
+
 ## Proxmox LXCs
 Proxmox is a virtualisation host. So you can deploy VMs on it, as well as Linux Containers (LXC). The second is what we'll use. 
 
@@ -39,9 +51,15 @@ Log in to Proxmox (the URL is shown when you log in via the terminal — see [Pa
 
 - Expand `Datacentre` and your server will be listed there
 - Right mouse-click your server node -> Create CT
-- **Uncheck "Unprivileged container:"**
+- **Leave "Unprivileged container:" checked** — it's the default
 
 ![Proxmox right-click context menu showing the Create CT option on the server node](/assets/building-a-home-server-pt4/create-lxc.webp)
+
+<Callout kind="info" title="What unprivileged means for your files">
+An unprivileged container shifts every user ID by 100000. The apps run as user `1000` inside the LXC, which lands on
+the host as `101000`, and the files on your ZFS pool owned by `1000` show up inside the LXC as `nobody`. We fix that
+further down with an ID map that pins user `1000` inside to user `1000` on the host.
+</Callout>
 
 - Put in a password and click next. Then you need to choose a Template, this is basically what OS you'll run. 
 
@@ -71,12 +89,12 @@ This will create a new LXC, stopped by default. Now you need to start it.
 You can spin up as many of these as you want to tailor your setup how you prefer. E.g. 
 - 1 LXC per app
 - 1 LXC for all the apps
-- 1 LXC for the arr* apps, 1 LXC for the media server. 
+- 1 LXC for the *arr apps, 1 LXC for the media server.
 
 <Callout kind="tip" title="Splitting apps across LXCs">
 If you don't care, run them all inside the same LXC, but as you grow more experienced, you may want to separate them 
 into their own LXCs. The typical driver behind splitting them is resource constraints. Especially on 8GB, you might
-want to have a 512MB LXC just for the arrs, and a LXC with 6G and more CPUs for the media server.
+want to have a 512MB LXC just for the *arrs, and a LXC with 6G and more CPUs for the media server.
 </Callout>
 
 ### Give your LXC a static IP
@@ -110,24 +128,48 @@ Open `192.168.1.88:8000` from outside the LXC and it will show `OK`.
 
 This is important, it sets up the building blocks for everything you'll need to run the media server. 
 
-### Disable AppArmor + Mount ZFS pool
-Docker by nature requires kernel access on the host. We need to disable the security features that will prevent this 
-from within the LXC.
+### Enable nesting, map the user IDs, mount the ZFS pool
+Docker needs to do privileged things inside its own container — create nested namespaces and cgroups, mount overlayfs
+for its storage driver, and use the kernel keyring. Proxmox gates those behind two container features, `nesting` and
+`keyctl`. Switching both on is enough. AppArmor stays on.
 
-Proxmox requires passing through mount points on the host to the LXC via explicit approval. 
+Proxmox requires passing through mount points on the host to the LXC via explicit approval.
+
+The ID map lines undo the 100000 shift for the two IDs the apps actually use, so user `1000` and group `1005` mean the
+same thing inside the LXC as they do on the host.
 
 1. Access the Proxmox host via terminal
-2. `nano /etc/pve/lxc/100.conf`
-3. Use the arrow keys to select the last line, hit enter to create a new line
-4. Paste the following 
+2. Let root hand out those two IDs:
 ```bash
-lxc.apparmor.profile: unconfined
+echo 'root:1000:1' >> /etc/subuid
+echo 'root:1005:1' >> /etc/subgid
+```
+3. `nano /etc/pve/lxc/100.conf`
+4. Use the arrow keys to select the last line, hit enter to create a new line
+5. Paste the following
+```bash
+features: nesting=1,keyctl=1
 mp0: /media-tank,mp=/media-data
-````
-5. Type `ctrl + o` then hit `Enter` to save
-6. Type `ctrl + x` to exit
+lxc.idmap: u 0 100000 1000
+lxc.idmap: u 1000 1000 1
+lxc.idmap: u 1001 101001 64535
+lxc.idmap: g 0 100000 1005
+lxc.idmap: g 1005 1005 1
+lxc.idmap: g 1006 101006 64530
+```
+6. Type `ctrl + o` then hit `Enter` to save
+7. Type `ctrl + x` to exit
 
-Reboot the LXC. This change disables AppArmor confinement for the LXC and mounts the ZFS pool at `/media-data`.
+<Callout kind="warn" title="If a features line is already there">
+`features:` can only appear once. If the file already has one, edit that line instead of pasting a second.
+</Callout>
+
+Each `idmap` line reads: starting at this ID inside the LXC, map to this ID on the host, for this many IDs. So users
+`0-999` go to `100000-100999`, user `1000` maps straight to `1000`, and everything above carries on at `101001`. The
+group lines do the same around `1005`. The three ranges have to add up to 65536 or the LXC won't start.
+
+Reboot the LXC. It now mounts the ZFS pool at `/media-data`, and files the apps write there land on the host owned by
+`1000:1005`.
 
 ## Running Apps
 <Callout kind="info" title="From now on ..">
@@ -207,11 +249,13 @@ sudo groupadd -g 1005 mediaapps
 ```bash
 sudo usermod -aG mediaapps dylan
 ```
-3. Hand ownership of `/media-data` to that group, and set the setgid bit so anything created underneath it inherits
-the group automatically:
+3. Hand ownership of the pool to that group, and set the setgid bit so anything created underneath it inherits the
+group automatically. Run this one **on the Proxmox host**, against `/media-tank` — the top of the pool belongs to the
+host's root user, and an unprivileged LXC can't change it. Use the number `1005` rather than the name, because
+`mediaapps` only exists inside the LXC:
 ```bash
-sudo chgrp -R mediaapps /media-data
-sudo chmod -R 2775 /media-data
+chgrp -R 1005 /media-tank
+chmod -R 2775 /media-tank
 ```
 The leading `2` in `2775` is the setgid bit — without it, new files created by a container would get that
 container's own primary group instead of `mediaapps`, and you'd be back to permission errors.
@@ -227,7 +271,7 @@ it simple for the different apps to reach each other.
 To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
 
 Create `~/compose.yaml` and paste the following (`nano ~/compose.yaml`). This is the Docker compose stack that runs
-all the arrs* and download clients.
+all the *arrs and download clients.
 
 ```yaml
 services:

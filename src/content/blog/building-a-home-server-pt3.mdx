@@ -9,21 +9,20 @@ image: "/assets/building-a-home-server-pt3/background.webp"
 import Diagram from '../../components/Diagram.astro';
 import Gallery from '../../components/Gallery.astro';
 
-Now we need to install a media player to watch media, apps to find media, and apps to download them.
+[Part 4](/posts/building-a-home-server-pt4) will cover installing apps needed to search and download media.
 
-There's a bit to cover here. I'll explain the core concepts in this post, as well as "hygiene" to keep your identity
-anonymous. 
+This post will cover the concepts of "the scene", and the important "hygiene" to keep your identity anonymous.
 
 ## Movies and TV
 
-The apps to find content are known as the arr* apps. Sonarr and Radarr let you browse for TV and Movies, Lidarr for music. 
-There are [more](https://github.com/Ravencentric/awesome-arr). 
+The apps to find content are known as the *arr apps. Sonarr and Radarr let you browse for TV and Movies, Lidarr for music.
+There are [more](https://github.com/Ravencentric/awesome-arr).
 
-You use the arr* app to find media, it manages finding it, downloading it, and importing it into the media player.
+You use the *arr app to find media; it manages finding it, downloading it, and importing it into the media player.
 
 Here's how the pieces fit together, using Sonarr as the example (Radarr works the same way, just for movies):
 
-<Diagram label="arr* stack" blur chart={`%%{init: {
+<Diagram label="*arr stack" blur chart={`%%{init: {
   "themeVariables": {
     "lineColor": "#60a5fa",
     "edgeLabelBackground": "#111726",
@@ -62,55 +61,54 @@ graph LR
 ## Jackett
 For Sonarr and Radarr to communicate with the indexers, you should install Jackett. Think of it like a reverse proxy for indexers.
 It's handy because Jackett is designed to talk to indexers, handling all their weird and wonderful quirks, such as their
-authentication. It's because the indexers are all built differently, some don't even have an API, instead you need to use their web
+authentication. That's because the indexers are all built differently: some don't even have an API — instead you need to use their web
 interface to search. Jackett is basically a headless browser that logs in, performs a search, then massages the results
 into JSON. Think of it as the API wrapper around any indexer.
 
-## Indexers 
+## Indexers
 These are the sites where users upload their media:
 - Torrent sites
-- Usenet 
+- Usenet
 
-Usenet is the one you may not have heard of. Read about it [here](https://www.reddit.com/r/usenet/comments/18q7r0f/usenet_starter_guide/). 
+Usenet is the one you may not have heard of. Read about it [here](https://www.reddit.com/r/usenet/comments/18q7r0f/usenet_starter_guide/).
 
-Torrents are free, you sign up to the tracker and just need to upload as much as you download. 
+Torrents are free; you sign up to the tracker and just need to upload as much as you download.
 
-Usenet is subscription-based. You choose a 'usenet' provider, and you download from their servers. 
+Usenet is subscription-based. You choose a 'usenet' provider, and you download from their servers.
 
-So now you know what you're looking for, you can choose the right ones for you. Google
-"Usenet providers" to find a provider. 
+So now that you know what you're looking for, you can choose the right ones for you. Google
+"Usenet providers" to find a provider.
 
-For torrents, the general term is called "the scene". It's the web of sites that get progressively more difficult
-to access and is based on who you know, and your contribution to "the scene". 
+For torrents, the general term is "the scene". It's the web of sites that get progressively more difficult
+to access and is based on who you know, and your contribution to "the scene".
 
 There are public trackers, and then many more private ones, usually specialising in particular content (e.g. TV, Movies, anime etc).
 
-This is where I did the most research. I found [opentrackers.org](https://opentrackers.org/) that listed tracker events, 
-where public registrations would be opened for a limited time. I was patient and found my way into some of the larger private ones. 
+This is where I did the most research. I found [opentrackers.org](https://opentrackers.org/) that listed tracker events,
+where public registrations would be opened for a limited time. I was patient and found my way into some of the larger private ones.
 
 Then I found [this site](https://lemmy.dbzer0.com/c/trackers?dataType=Post&page=1&sort=New) that had some good information
-about getting access to a tracker. 
+about getting access to a tracker.
 
 ### Usenet indexers
 Usenet is the network where files are stored. But you need a way to search the network. For this you need to pay for
-another service called a Usenet indexer.  
+another service called a Usenet indexer.
 
-[This Reddit wiki](https://www.reddit.com/r/usenet/wiki/indexers/) lists a bunch. 
+[This Reddit wiki](https://www.reddit.com/r/usenet/wiki/indexers/) lists a bunch.
 
 ## VPN
 Yes, you need to use one. When you download something, it's a trace back to your IP.
-- Torrents list the other peers downloading or seeding (uploading) the content. Their IPs are visible to everyone 
+- Torrents list the other peers downloading or seeding (uploading) the content. Their IPs are visible to everyone
 downloading the same content.
 - Usenet is centralised. The news hosting provider you signed up with will see your IP as you grab something.
 
 Using a VPN will anonymise your IP and won't trace back to your ISP. I use Private Internet Access, but do your research;
-as long as they provide a connection as fast as your internet plan, it doesn't matter who you choose. 
+as long as they provide a connection as fast as your internet plan, it doesn't matter who you choose.
 
 ## Burner email
-Set up a new GMail account that you'll use to sign up to all the indexers and Usenet subscriptions. You'll come to see
+Set up a new Gmail account that you'll use to sign up to all the indexers and Usenet subscriptions. You'll come to see
 that the community is cobbled together with sticky tape and single administrators. Using a burner email means if there's
 a leak, your burner email won't link back to you.
 
 ## Next article
 You're ready to install the apps, run a VPN, and access the media server from your TV / mobile.
-

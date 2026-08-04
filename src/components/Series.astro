@@ -11,12 +11,22 @@ interface Part {
   slug: string;
   part: number;
   title: string;
+  blurb: string;
+  date: Date;
+  upcoming: boolean;
 }
 
 const currentMatch = slug.match(/^(.*)-pt(\d+)$/i);
 
 let parts: Part[] = [];
 let seriesTitle = '';
+
+// Descriptions are written as "Part 2 - choosing an OS..." / "Part 1 of a guide...".
+// The part number is already the row label, so drop that prefix from the blurb.
+const stripPartPrefix = (description: string) =>
+  description.replace(/^\s*part\s*\d+\s*(?:[-–—:]\s*|of\s+)/i, '').trim() || description;
+
+const now = Date.now();
 
 if (currentMatch) {
   const [, base] = currentMatch;
@@ -26,7 +36,16 @@ if (currentMatch) {
   parts = posts
     .map((post): Part | null => {
       const m = post.slug.match(partRegex);
-      return m ? { slug: post.slug, part: Number(m[1]), title: post.data.title } : null;
+      return m
+        ? {
+            slug: post.slug,
+            part: Number(m[1]),
+            title: post.data.title,
+            blurb: stripPartPrefix(post.data.description ?? ''),
+            date: post.data.date,
+            upcoming: post.data.date.getTime() > now,
+          }
+        : null;
     })
     .filter((p): p is Part => p !== null)
     .sort((a, b) => a.part - b.part);
@@ -34,100 +53,159 @@ if (currentMatch) {
   const currentTitle = parts.find((p) => p.slug === slug)?.title ?? '';
   seriesTitle = currentTitle.replace(/\s*[-–—:]\s*part\s*\d+\s*$/i, '').trim() || currentTitle;
 }
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
 ---
 
 {parts.length > 1 && (
-  <nav class="series-strip" aria-label="Series navigation">
-    <span class="series-title">{seriesTitle}</span>
-    <ol class="series-steps">
-      {parts.map((p) => (
-        <li>
-          {p.slug === slug ? (
-            <span class="series-step series-step-current" aria-current="page">
-              <span class="series-dot"></span>
-              Part {p.part}
+  <nav class="series" aria-label="Series navigation">
+    <div class="series-eyebrow">More in this series</div>
+    <div class="series-title">{seriesTitle}</div>
+
+    <div class="series-list">
+      {parts.map((p) =>
+        p.slug === slug ? (
+          <div class="series-row is-current" aria-current="page">
+            <span class="series-marker" aria-hidden="true">●</span>
+            <span class="series-row-text">
+              <span class="series-part">Part {p.part}</span>
+              {p.blurb && <span class="series-blurb"> — {p.blurb}</span>}
+              <span class="series-date"> · {p.upcoming ? 'Soon' : formatDate(p.date)}</span>
             </span>
-          ) : (
-            <a class="series-step" href={`/posts/${p.slug}`}>
-              <span class="series-dot"></span>
-              Part {p.part}
-            </a>
-          )}
-        </li>
-      ))}
-    </ol>
+          </div>
+        ) : (
+          <a
+            class:list={['series-row', { 'is-upcoming': p.upcoming }]}
+            href={`/posts/${p.slug}`}
+          >
+            <span class="series-marker" aria-hidden="true">›</span>
+            <span class="series-row-text">
+              <span class="series-part">Part {p.part}</span>
+              {p.blurb && <span class="series-blurb"> — {p.blurb}</span>}
+              <span class="series-date"> · {p.upcoming ? 'Soon' : formatDate(p.date)}</span>
+            </span>
+          </a>
+        )
+      )}
+    </div>
   </nav>
 )}
 
 <style>
-  .series-strip {
-    margin: 20px 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  .series {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line-1);
   }
 
-  .series-title {
+  .series-eyebrow {
     font-family: var(--font-mono);
-    font-weight: 500;
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .series-title {
+    margin-top: 8px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-xl);
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-1);
+  }
+
+  .series-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 22px;
+  }
+
+  .series-row {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 14px;
+    align-items: baseline;
+    padding: 11px 10px;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: background var(--dur-base) var(--ease-out),
+                opacity var(--dur-base) var(--ease-out);
+  }
+
+  a.series-row:hover {
+    background: var(--accent-dim);
+    text-decoration: none;
+  }
+
+  a.series-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .series-row.is-current {
+    background: var(--accent-dim);
+  }
+
+  .series-row.is-upcoming {
+    opacity: 0.6;
+  }
+
+  a.series-row.is-upcoming:hover {
+    opacity: 0.85;
+  }
+
+  .series-marker {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
     color: var(--fg-3);
   }
 
-  .series-steps {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  .series-row.is-current .series-marker {
+    color: var(--accent);
   }
 
-  .series-step {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--line-1);
-    background: var(--bg-2);
+  .series-row-text {
+    line-height: 1.55;
+  }
+
+  .series-part {
     font-family: var(--font-display);
-    font-weight: 500;
-    font-size: var(--text-sm);
+    font-weight: 600;
+    font-size: 1.15rem;
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-1);
+  }
+
+  .series-blurb {
+    font-size: 1rem;
     color: var(--fg-2);
-    text-decoration: none;
-    transition: border-color var(--dur-fast) var(--ease-out),
-                background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out);
   }
 
-  a.series-step:hover {
-    border-color: var(--line-2);
-    background: var(--bg-3);
-    color: var(--fg-1);
-    text-decoration: none;
+  .series-date {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    white-space: nowrap;
   }
 
-  .series-dot {
-    flex: none;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--line-2);
+  .series-row.is-current .series-date {
+    color: var(--accent);
   }
 
-  .series-step-current {
-    background: var(--accent-dim);
-    border-color: var(--accent-strong);
-    color: var(--fg-1);
-    font-weight: 700;
-    cursor: default;
-  }
+  @media (max-width: 768px) {
+    .series-list {
+      margin-top: 16px;
+    }
 
-  .series-step-current .series-dot {
-    background: var(--accent);
-    box-shadow: 0 0 8px 1px rgba(96, 165, 250, 0.6);
+    .series-row {
+      grid-template-columns: 16px 1fr;
+      gap: 10px;
+      padding: 10px 6px;
+    }
   }
 </style>
