@@ -28,16 +28,16 @@ pveam available           # list all templates (add -section system for OS templ
 pveam download local <template-name>   # download to local storage
 ```
 
-Example
+Install Debian
 ```bash
 pveam available | grep debian
-pveam download local debian-12-turnkey-zoneminder_18.0-1_amd64.tar.gz
+pveam download local debian-12-standard_12.12-1_amd64.tar.zst
 ```
 
 ### Deploy LXC
 Log in to Proxmox (the URL is shown when you log in via the terminal — see [Part 2](/posts/building-a-home-server-pt2) for installing and logging in to Proxmox and finding the web URL).
 
-- Expand `Datacentre` and your server will be listed there, mine is called Bethany.
+- Expand `Datacentre` and your server will be listed there
 - Right mouse-click your server node -> Create CT
 - **Uncheck "Unprivileged container:"**
 
@@ -54,12 +54,12 @@ If you're more familiar with another Linux distribution, download that template 
 </Callout>
 
 As you click through, you can tweak memory, CPU, storage. This is resource management, because it's virtual you're not actually
-allocating that much memory, just how much the VM will see. I tend to allocate the same memory and CPU as my host. 
+allocating that much memory, just how much the LXC will see. I tend to allocate the same memory and CPU as my host. 
 
-This will create a new VM, stopped by default. Now you need to start it. 
+This will create a new LXC, stopped by default. Now you need to start it. 
 - Click it beneath the server node. 
 - At the top right click Start
-- Wait for it to start, it will have a green icon on the VM under the server node
+- Wait for it to start, it will have a green icon on the LXC under the server node
 - Click Console
 - Log in with `root` | `the password you set`
 
@@ -68,25 +68,26 @@ This will create a new VM, stopped by default. Now you need to start it.
   { src: "/assets/building-a-home-server-pt4/console.webp", alt: "Proxmox console after logging in as root" },
 ]} />
 
-At this point you have a VM running Debian where you will install the media server apps. 
+You can spin up as many of these as you want to tailor your setup how you prefer. E.g. 
+- 1 LXC per app
+- 1 LXC for all the apps
+- 1 LXC for the arr* apps, 1 LXC for the media server. 
 
-You have lots of options at this point. 1 VM per app, 1 VM for all the apps, 1 VM for the arr* apps, 1 VM for the media server. 
-
-<Callout kind="tip" title="Splitting apps across VMs">
-If you don't care, run them all inside the same VM, but as you grow more experienced, you may want to separate them 
-into their own VMs. The typical driver behind splitting them is resource constraints. Especially on 8GB, you might
-want to have a 512MB VM just for the arrs, and a VM with 6G and more CPUs for the media server.
+<Callout kind="tip" title="Splitting apps across LXCs">
+If you don't care, run them all inside the same LXC, but as you grow more experienced, you may want to separate them 
+into their own LXCs. The typical driver behind splitting them is resource constraints. Especially on 8GB, you might
+want to have a 512MB LXC just for the arrs, and a LXC with 6G and more CPUs for the media server.
 </Callout>
 
-### Give your VM a static IP
-Proxmox uses a virtual networking stack to give VMs their own address space, and uses a bridge to make the VMs accessible
-from the host. That means you can access your VM via an IP on your host network, e.g. `192.168.1.212`. 
+### Give your LXC a static IP
+Proxmox uses a virtual networking stack to give LXCs their own address space, and uses a bridge to make the LXCs accessible
+from the host. That means you can access your LXC via an IP on your host network, e.g. `192.168.1.212`. 
 
-Finding the host network IP can be tricky, it's not shown in the Proxmox UI. So its best practice to assign a static IP to your VM
+Finding the host network IP can be tricky, it's not shown in the Proxmox UI. So its best practice to assign a static IP to your LXC
 that comes from your home network. So if your home network is in the `192.168.1.*` range, assign a static IP `192.168.1.88`
-and that is your VM's IP. Find your home network range by running `ip a` (Linux) or `ipconfig` (Windows) to find your IP. 
+and that is your LXC's IP. Find your home network range by running `ip a` (Linux) or `ipconfig` (Windows) to find your IP. 
 
-In the Proxmox UI, select the VM > Network > Edit the network device:
+In the Proxmox UI, select the LXC > Network > Edit the network device:
 
 ![Proxmox CT network device configuration screen](/assets/building-a-home-server-pt4/ct-networking.webp)
 
@@ -94,31 +95,50 @@ In the Proxmox UI, select the VM > Network > Edit the network device:
 - Enter `192.168.1.88/24` in IPv4/CIDR
 - Gateway: `192.168.1.1`
 
-Restart your VM and it will come back online with that IP.
+Restart your LXC and it will come back online with that IP.
 
 <Callout kind="tip" title="See it in action">
-To see this in practice, run a simple web site within the VM then access it from the static IP
+To see this in practice, run a simple web site within the LXC then access it from the static IP
 
 ```bash
 mkdir -p /tmp/www && echo "OK" > /tmp/www/index.html
 cd /tmp/www && python3 -m http.server 8000
 ```
 
-Open `192.168.1.88:8000` from your laptop and it will show `OK`.
+Open `192.168.1.88:8000` from outside the LXC and it will show `OK`.
 </Callout>
 
 This is important, it sets up the building blocks for everything you'll need to run the media server. 
 
+### Disable AppArmor + Mount ZFS pool
+Docker by nature requires kernel access on the host. We need to disable the security features that will prevent this 
+from within the LXC.
+
+Proxmox requires passing through mount points on the host to the LXC via explicit approval. 
+
+1. Access the Proxmox host via terminal
+2. `nano /etc/pve/lxc/100.conf`
+3. Use the arrow keys to select the last line, hit enter to create a new line
+4. Paste the following 
+```bash
+lxc.apparmor.profile: unconfined
+mp0: /media-tank,mp=/media-data
+````
+5. Type `ctrl + o` then hit `Enter` to save
+6. Type `ctrl + x` to exit
+
+Reboot the LXC. This change disables AppArmor confinement for the LXC and mounts the ZFS pool at `/media-data`.
+
 ## Running Apps
 <Callout kind="info" title="From now on ..">
-Run all of the following from within your VM
+Run all of the following from within your LXC
 </Callout>
 
 Go with Docker for running apps. It's the best supported runtime for every app you'll need.
 
 ### Create a non-root user
 <Callout kind="warn" title="Don't stay logged in as root">
-The VM is running root by default. The best practice would be to create a new user, and log in with them:
+The LXC is running root by default. The best practice would be to create a new user, and log in with them:
 </Callout>
 
 ```bash
@@ -133,21 +153,9 @@ apt update && apt install sudo # install sudo command
 exit # will log you out, log back in with the new user
 ```
 
-### Disable AppArmor
-Docker by nature requires kernel access on the host. We need to disable the security features that will prevent this.
-
-1. Access the Proxmox host via terminal
-2. `nano /etc/pve/lxc/100.conf`
-3. Use the arrow keys to select the last line, hit enter to create a new one
-4. Paste `lxc.apparmor.profile: unconfined`
-5. Type `ctrl + o` then hit `Enter` to save
-6. Type `ctrl + x` to exit
-
-Reboot the VM. This change disables AppArmor confinement for the VM. 
-
 ### Install Docker
 <Callout kind="tip" title="Same steps as installing on Debian directly">
-Because your VM is running Debian you can read the Debian docs for installing Debian, [here](https://docs.docker.com/engine/install/debian/)
+Because your LXC is running Debian you can read the Debian docs for installing Debian, [here](https://docs.docker.com/engine/install/debian/)
 </Callout>
 
 ```bash
@@ -185,13 +193,40 @@ exit # log out and back in again
 docker run hello-world # should work now
 ```
 
+### Set up a shared group for file permissions
+<Callout kind="warn" title="Don't just run everything as root">
+We're about to deploy the media server apps. They need to access the ZFS pool to read and write the media,
+creating a shared user and group for the containers will solve file access issues.
+</Callout>
+
+1. Create a group on the LXC that all the apps will share:
+```bash
+sudo groupadd -g 1005 mediaapps
+```
+2. Add your own user to it too, so you can browse/manage the files yourself:
+```bash
+sudo usermod -aG mediaapps dylan
+```
+3. Hand ownership of `/media-data` to that group, and set the setgid bit so anything created underneath it inherits
+the group automatically:
+```bash
+sudo chgrp -R mediaapps /media-data
+sudo chmod -R 2775 /media-data
+```
+The leading `2` in `2775` is the setgid bit — without it, new files created by a container would get that
+container's own primary group instead of `mediaapps`, and you'd be back to permission errors.
+
+<Callout kind="tip" title="Picking a PUID">
+Any UID works as long as it isn't already used — the examples below use `1000`.
+</Callout>
+
 ## Docker Compose
 Docker compose lets you manage multiple containers declaratively in a single file `compose.yaml`. It has some handy features that make
 it simple for the different apps to reach each other. 
 
 To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
 
-We are going to create a `compose.yml` file on the VM containing all the **arrs** as well as the download clients. 
+We are going to create a `compose.yml` file on the LXC containing all the **arrs** as well as the download clients. 
 
 ```yaml
 services:
@@ -199,12 +234,13 @@ services:
     image: lscr.io/linuxserver/jackett:latest
     container_name: jackett
     environment:
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
       - TZ=Australia/Brisbane
     volumes:
       - /media-data/config-jackett:/config
-      - /media-data/downloads:/downloads
+      - /media-data:/data
     ports:
       - 9117:9117
     restart: unless-stopped
@@ -214,13 +250,13 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
       - TZ=Australia/Brisbane
     volumes:
       - /media-data/config-sonarr:/config
-      - /media-data/tv:/tv
-      - /media-data/downloads:/downloads
+      - /media-data:/data
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -230,13 +266,13 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
       - TZ=Australia/Brisbane
     volumes:
       - /media-data/config-radarr:/config
-      - /media-data/movies:/movies
-      - /media-data/downloads:/downloads
+      - /media-data:/data
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -246,12 +282,13 @@ services:
     image: lscr.io/linuxserver/sabnzbd:latest
     container_name: sabnzbd
     environment:
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
       - TZ=Australia/Brisbane
     volumes:
       - /media-data/config-sabnzbd:/config
-      - /media-data/downloads:/downloads
+      - /media-data:/data
     ports:
       - 8080:8080
     restart: unless-stopped
@@ -261,14 +298,15 @@ services:
     image: lscr.io/linuxserver/transmission:latest
     container_name: transmission
     environment:
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
       - TZ=Australia/Brisbane
       - USER=admin
-      - PASS=GiPztGcP8Yk8cZhraffwfjjZYiHahRnD3bjLUZqi6uoe4Abw
+      - PASS=GENERATE-A-PASSWORD-TO-LOGIN
     volumes:
       - /media-data/config-transmission:/config
-      - /media-data/downloads:/downloads
+      - /media-data:/data
     ports:
       - 9091:9091
       - 51413:51413
@@ -279,8 +317,8 @@ services:
   unpackerr:
     image: golift/unpackerr
     volumes:
-      - /media-data/downloads/complete:/downloads
-    user: 0:0
+      - /media-data:/data
+    user: 1000:1005
     environment:
       - TZ=Australia/Brisbane
       - UN_QUIET=false
@@ -308,3 +346,30 @@ networks:
   arrs: null
 
 ```
+
+Bring the whole stack up:
+
+```bash
+docker compose up -d
+```
+
+The `-d` just detaches it from your terminal — it isn't what makes the stack survive a reboot. That comes from
+`restart: unless-stopped` on every service, plus Docker's own service being enabled at boot (`sudo systemctl enable docker`).
+
+### Point the apps at the right paths
+Everything lives under `/data` inside the containers, so use these paths when you first configure each app:
+
+| App          | Setting                                           | Path                         |
+|--------------|---------------------------------------------------|------------------------------|
+| Sonarr       | Media Management > Root Folder                    | `/data/tv`                   |
+| Radarr       | Media Management > Root Folder                    | `/data/movies`               |
+| SABnzbd      | Folders (tab) > Temporary Download Folder         | `/data/downloads/incomplete` |
+| SABnzbd      | Folders (tab) > Completed Download Folder         | `/data/downloads/complete`   |
+| Transmission | Edit Preferences > Download to                    | `/data/downloads`            |
+| Transmission | Edit Preferences > Uncheck "Use temporary folder" |                              |
+
+Unpackerr needs the API keys from Sonarr and Radarr, found under **Settings → General → API Key** in each app.
+Drop them into the `UN_SONARR_0_API_KEY` and `UN_RADARR_0_API_KEY` placeholders above and run `docker compose up -d`
+again — it'll restart in a loop until they're valid.
+
+Transmission needs a password set to use as the web UI login. Set `PASS` to set the UI password.
