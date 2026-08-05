@@ -3,7 +3,7 @@ title: "Running Arch Linux inside QEMU"
 description: "A comprehensive guide to installing Arch Linux in a QEMU virtual machine, from disk partitioning to GUI setup"
 date: 2024-05-12
 tags: ["linux", "virtualisation", "qemu"]
-image: "/assets/backgrounds/arch-qemu-header.jpg"
+image: "/assets/backgrounds/blog_background.webp"
 ---
 
 I've been meaning to try Arch Linux. I wanted to install it inside a VM first, capture notes on the installation process, then if all goes well replace it as my host OS.

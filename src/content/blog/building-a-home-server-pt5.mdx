@@ -1,0 +1,334 @@
+---
+title: "Building a home media server - Part 5"
+description: "Part 5 - cloning the image and running the apps"
+date: 2026-08-05
+tags: ["media server"]
+image: "/assets/backgrounds/blog_background.webp"
+---
+
+import Callout from '../../components/Callout.astro';
+
+[Part 4](/posts/building-a-home-server-pt4) built a base image: an unprivileged Debian LXC with Docker installed and
+the user IDs mapped. This article clones it twice — one container for the *arrs and download clients, one for the
+media server — mounts the ZFS pool into both, and brings the apps up with Docker Compose.
+
+<Callout kind="tip" title="Available as a script">
+Everything below is also a script: [setup.sh](/assets/building-a-home-server-pt5/setup.sh). Read it first, change the
+config block at the top to match your own network, then run it on the Proxmox host as root:
+
+```bash
+TRANSMISSION_PASS='...' ./setup.sh
+```
+
+It's safe to run more than once, and it prints the handful of steps it can't do for you at the end — the apps all
+configure themselves through their own web UIs. The rest of this post explains what it's doing and why.
+</Callout>
+
+## Why two containers
+You can run all of this in one LXC. Nothing breaks if you do.
+
+The reason to split is resource management. The *arrs sit idle most of the day and want almost nothing; the media
+server wants RAM, cores and the GPU whenever somebody presses play. Two containers means you can give the media
+server 6GB and 4 cores without the *arrs ever being in a position to eat into it, and you can reboot one without
+touching the other.
+
+<Callout kind="info" title="Both mount the same pool">
+There's one copy of the media. Both containers bind-mount `/media-tank` from the host, so Sonarr writes an episode in
+one container and the media server sees it in the other.
+</Callout>
+
+## Clone the image
+Run this on the Proxmox host. `101` is the *arrs, `102` is the media server — any unused IDs will do.
+
+```bash
+pct clone 100 101 --hostname arrs --full 1
+pct clone 100 102 --hostname media --full 1
+```
+
+Each clone comes up as an exact copy of the base image, which includes its static IP. Give them their own before
+starting either one, along with the resources each actually needs:
+
+```bash
+pct set 101 --net0 name=eth0,bridge=vmbr0,ip=192.168.1.88/24,gw=192.168.1.1 --memory 2048 --cores 2
+pct set 102 --net0 name=eth0,bridge=vmbr0,ip=192.168.1.89/24,gw=192.168.1.1 --memory 6144 --cores 4
+```
+
+<Callout kind="warn" title="Check the ID map came across">
+Open `/etc/pve/lxc/101.conf` and `/etc/pve/lxc/102.conf` and confirm the six `lxc.idmap:` lines and the
+`features: nesting=1,keyctl=1` line survived the clone. If they didn't, paste them back in from
+[Part 4](/posts/building-a-home-server-pt4) — without them Docker won't start and everything written to the pool
+lands owned by `nobody`.
+</Callout>
+
+## Mount the ZFS pool
+Proxmox requires passing through mount points on the host to the LXC via explicit approval. `mp0` is that approval:
+the pool at `/media-tank` on the host (from [Part 3](/posts/building-a-home-server-pt3)) appears as `/media-data`
+inside the container.
+
+```bash
+pct set 101 --mp0 /media-tank,mp=/media-data
+pct set 102 --mp0 /media-tank,mp=/media-data
+```
+
+Then hand ownership of the pool to the shared group, and set the setgid bit so anything created underneath it
+inherits the group automatically. This one runs **on the Proxmox host**, against `/media-tank` — the top of the pool
+belongs to the host's root user, and an unprivileged LXC can't change it. Use the number `1005` rather than the name,
+because `mediaapps` only exists inside the containers:
+
+```bash
+chgrp -R 1005 /media-tank
+chmod -R 2775 /media-tank
+```
+
+The leading `2` in `2775` is the setgid bit — without it, new files created by a container would get that
+container's own primary group instead of `mediaapps`, and you'd be back to permission errors.
+
+Start them both and check the mount landed:
+
+```bash
+pct start 101
+pct start 102
+pct exec 101 -- ls -ld /media-data   # should be owned by 1000:mediaapps, not nobody
+```
+
+If that shows `nobody`, the ID map didn't come across with the clone — go back and check the conf file.
+
+## The *arrs
+<Callout kind="info" title="From now on ..">
+Run the following inside container `101`, logged in as your non-root user
+</Callout>
+
+Docker compose lets you manage multiple containers declaratively in a single file `compose.yaml`. It has some handy features that make
+it simple for the different apps to reach each other. 
+
+To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
+
+Create `~/compose.yaml` and paste the following (`nano ~/compose.yaml`). This is the Docker compose stack that runs
+all the *arrs and download clients.
+
+```yaml
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-jackett:/config
+      - /media-data:/data
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+    networks:
+      - arrs
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-sonarr:/config
+      - /media-data:/data
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    networks:
+      - arrs
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-radarr:/config
+      - /media-data:/data
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    networks:
+      - arrs
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+    volumes:
+      - /media-data/config-sabnzbd:/config
+      - /media-data:/data
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+    networks:
+      - arrs
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+      - USER=admin
+      - PASS=GENERATE-A-PASSWORD-TO-LOGIN
+    volumes:
+      - /media-data/config-transmission:/config
+      - /media-data:/data
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
+    networks:
+      - arrs
+  unpackerr:
+    image: golift/unpackerr
+    volumes:
+      - /media-data:/data
+    user: 1000:1005
+    environment:
+      - TZ=Australia/Brisbane
+      - UN_QUIET=false
+      - UN_DEBUG=false
+      - UN_ERROR_STDERR=false
+      - UN_LOG_QUEUES=1m
+      - UN_LOG_FILES=10
+      - UN_LOG_FILE_MB=10
+      - UN_INTERVAL=2m
+      - UN_START_DELAY=1m
+      - UN_RETRY_DELAY=5m
+      - UN_MAX_RETRIES=3
+      - UN_PARALLEL=1
+      - UN_FILE_MODE=0644
+      - UN_DIR_MODE=0755
+      - UN_ACTIVITY=false
+      - UN_SONARR_0_URL=http://sonarr:8989
+      - UN_SONARR_0_API_KEY=PUT-SONARR-API-KEY-HERE
+      - UN_RADARR_0_URL=http://radarr:7878
+      - UN_RADARR_0_API_KEY=PUT-RADARR-API-KEY-HERE
+    restart: unless-stopped
+    networks:
+      - arrs
+networks:
+  arrs: null
+
+```
+
+Bring the whole stack up:
+
+```bash
+cd ~ && docker compose up -d
+```
+
+The `-d` just detaches it from your terminal — it isn't what makes the stack survive a reboot. That comes from
+`restart: unless-stopped` on every service, plus Docker's own service being enabled at boot (`sudo systemctl enable docker`).
+
+### Point the apps at the right paths
+Everything lives under `/data` inside the containers, so use these paths when you first configure each app:
+
+| App          | Setting                                           | Path                         |
+|--------------|---------------------------------------------------|------------------------------|
+| Sonarr       | Media Management > Root Folder                    | `/data/tv`                   |
+| Radarr       | Media Management > Root Folder                    | `/data/movies`               |
+| SABnzbd      | Folders (tab) > Temporary Download Folder         | `/data/downloads/incomplete` |
+| SABnzbd      | Folders (tab) > Completed Download Folder         | `/data/downloads/complete`   |
+| Transmission | Edit Preferences > Download to                    | `/data/downloads`            |
+| Transmission | Edit Preferences > Uncheck "Use temporary folder" |                              |
+
+Unpackerr needs the API keys from Sonarr and Radarr, found under **Settings → General → API Key** in each app.
+Drop them into the `UN_SONARR_0_API_KEY` and `UN_RADARR_0_API_KEY` placeholders above and run `docker compose up -d`
+again — it'll restart in a loop until they're valid.
+
+Transmission needs a password set to use as the web UI login. Set `PASS` to set the UI password.
+
+## The media server
+Container `102` is the same image doing a different job: it reads what the *arrs wrote and streams it. The one thing
+it needs that nothing else so far has is the GPU — [Part 1](/posts/building-a-home-server-pt1) picked an Intel CPU
+with Quick Sync precisely so transcoding doesn't melt the machine.
+
+### Pass the GPU through
+The render node lives at `/dev/dri/renderD128` on the host. Add it to the container's config, owned by the shared
+group so the app can open it. On the Proxmox host:
+
+```bash
+pct set 102 --dev0 /dev/dri/renderD128,gid=1005,mode=0660
+pct reboot 102
+```
+
+Check it arrived, inside container `102`:
+
+```bash
+ls -l /dev/dri
+# crw-rw---- 1 root mediaapps 226, 128 ... renderD128
+```
+
+If the group shows as `nogroup` instead of `mediaapps`, the ID map isn't doing its job — same fix as above.
+
+<Callout kind="info" title="On older Proxmox">
+`dev0` is the modern device passthrough syntax. If your Proxmox doesn't have it, the equivalent is two raw lines in
+`/etc/pve/lxc/102.conf`:
+
+```bash
+lxc.cgroup2.devices.allow: c 226:128 rwm
+lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+```
+
+`226` is the DRM major number; `128` is the first render node. Check yours with `ls -l /dev/dri` on the host.
+</Callout>
+
+### Run it
+Grab a claim token from [plex.tv/claim](https://www.plex.tv/claim) first — it ties the new server to your account,
+and it expires after four minutes, so do it just before you bring the container up.
+
+Create `~/compose.yaml` inside container `102`:
+
+```yaml
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1005
+      - UMASK=002
+      - TZ=Australia/Brisbane
+      - VERSION=docker
+      - PLEX_CLAIM=PUT-YOUR-CLAIM-TOKEN-HERE
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /media-data/config-plex:/config
+      - /media-data:/data
+    restart: unless-stopped
+```
+
+```bash
+cd ~ && docker compose up -d
+```
+
+`network_mode: host` rather than a port mapping — Plex uses broadcast discovery on the LAN to find clients, and that
+doesn't survive being NATed through Docker's bridge. It's the one service here that gets the container's network
+directly.
+
+Open `http://192.168.1.89:32400/web` and add the libraries, pointing them at the same paths the *arrs write to:
+
+| Library type | Path          |
+|--------------|---------------|
+| Movies       | `/data/movies`|
+| TV Shows     | `/data/tv`    |
+
+Then turn transcoding on: **Settings → Transcoder → Use hardware acceleration when available**. Play something,
+force a lower quality, and check the dashboard — the transcode session should be labelled `(hw)`. If it isn't, the
+GPU isn't reaching the container and `ls -l /dev/dri` inside the LXC is the place to start.

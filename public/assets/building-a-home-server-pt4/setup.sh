@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 #
-# Builds the media server LXC from "Building a home media server - Part 4":
+# Builds the base LXC image from "Building a home media server - Part 4":
 # creates an unprivileged Debian container on Proxmox, gives it a static IP,
-# maps the user IDs, mounts the ZFS pool, installs Docker inside it, and brings
-# up the *arr / download stack with docker compose.
+# maps the user IDs, installs Docker inside it, creates the shared group, and
+# converts it to a template ready to clone.
+#
+# Nothing media-specific goes in here — no pool mount, no apps. That's Part 5,
+# and its script (assets/building-a-home-server-pt5/setup.sh) clones what this
+# one produces.
 #
 # Run this on:   the Proxmox host, as root
-# Requires:      a ZFS pool already mounted at $POOL (Part 3), internet access
+# Requires:      internet access
 #
 # Read it before you run it. Change the CONFIG block to match your own network
 # and names — the defaults are mine and the IP almost certainly clashes with
@@ -19,27 +23,27 @@ set -euo pipefail
 #   CTID=123 LXC_IP=10.0.0.50/24 ./setup.sh
 
 CTID="${CTID:-100}"                            # container ID, must be unused
-CT_HOSTNAME="${CT_HOSTNAME:-media}"            # not HOSTNAME — bash sets that
+CT_HOSTNAME="${CT_HOSTNAME:-base}"             # not HOSTNAME — bash sets that
 LXC_IP="${LXC_IP:-192.168.1.88/24}"            # static IP, free on your LAN
 GATEWAY="${GATEWAY:-192.168.1.1}"              # your router
 BRIDGE="${BRIDGE:-vmbr0}"                      # Proxmox bridge on your LAN
 STORAGE="${STORAGE:-local-lvm}"                # rootfs storage (`pvesm status`)
 DISK_GB="${DISK_GB:-16}"                       # rootfs size
-MEMORY_MB="${MEMORY_MB:-6144}"                 # RAM the LXC sees
-CORES="${CORES:-4}"                            # CPU cores the LXC sees
+MEMORY_MB="${MEMORY_MB:-2048}"                 # RAM the image sees; clones
+CORES="${CORES:-2}"                            #   get their own in Part 5
 
 USERNAME="${USERNAME:-dylan}"                  # non-root user inside the LXC
 PUID="${PUID:-1000}"                           # UID the apps run as
 PGID="${PGID:-1005}"                           # shared "mediaapps" GID
-CT_TZ="${CT_TZ:-Australia/Brisbane}"           # container timezone
 
-POOL="${POOL:-/media-tank}"                    # ZFS pool on the host (Part 3)
-MOUNT="${MOUNT:-/media-data}"                  # where it appears in the LXC
+# pct template is one-way: the container can never be started again, only
+# cloned. Set MAKE_TEMPLATE=0 to leave it as a normal stopped container — Part 5
+# can clone either.
+MAKE_TEMPLATE="${MAKE_TEMPLATE:-1}"
 
-# Secrets: required up front rather than shipped with a default, so nobody
-# ends up running a media stack with a password that's published on a blog.
+# Secret: required up front rather than shipped with a default, so nobody ends
+# up running a container with a password that's published on a blog.
 : "${CT_PASSWORD:?set CT_PASSWORD before running, e.g. CT_PASSWORD='...' ./setup.sh}"
-: "${TRANSMISSION_PASS:?set TRANSMISSION_PASS before running (Transmission web UI login)}"
 
 # --------------------------------------------------------------- HELPERS ----
 
@@ -71,8 +75,15 @@ preflight() {
   [[ $EUID -eq 0 ]] || die "run this as root on the Proxmox host"
   command -v pct    >/dev/null || die "no pct — this doesn't look like a Proxmox host"
   command -v pveam  >/dev/null || die "no pveam — this doesn't look like a Proxmox host"
-  [[ -d "$POOL" ]] || die "$POOL does not exist — set up the ZFS pool from Part 3 first"
-  echo "    host ok, pool $POOL present"
+
+  # Already converted? Everything below would fail on a template, and there's
+  # nothing left to do to it anyway.
+  if [[ -f "$CONF" ]] && grep -qx 'template: 1' "$CONF"; then
+    log "CT $CTID is already a template — nothing to do"
+    printf '\nClone it with:\n  pct clone %s 101 --hostname arrs --full 1\n\n' "$CTID"
+    exit 0
+  fi
+  echo "    host ok"
 }
 
 # ------------------------------------------------------------------ STEPS ---
@@ -108,6 +119,8 @@ create_container() {
   # --unprivileged 1 is the wizard's checked-by-default box.
   # --features is set here rather than hand-edited into the conf file later,
   #   which sidesteps the post's warning about `features:` appearing twice.
+  # No --mp0: the pool gets mounted per-clone in Part 5, not baked into the
+  #   image.
   pct create "$CTID" "local:vztmpl/${TEMPLATE}" \
     --hostname "$CT_HOSTNAME" \
     --unprivileged 1 \
@@ -116,15 +129,15 @@ create_container() {
     --memory "$MEMORY_MB" \
     --rootfs "${STORAGE}:${DISK_GB}" \
     --net0 "name=eth0,bridge=${BRIDGE},ip=${LXC_IP},gw=${GATEWAY}" \
-    --mp0 "${POOL},mp=${MOUNT}" \
     --onboot 1
 }
 
-# Post: "Enable nesting, map the user IDs, mount the ZFS pool"
+# Post: "Enable nesting and map the user IDs"
 map_user_ids() {
   log "Mapping user IDs"
 
-  # Let root hand out the two IDs the apps actually use.
+  # Let root hand out the two IDs the apps actually use. These live on the host,
+  # so they're done once here and every clone inherits the effect.
   grep -qxF "root:${PUID}:1" /etc/subuid || echo "root:${PUID}:1" >> /etc/subuid
   grep -qxF "root:${PGID}:1" /etc/subgid || echo "root:${PGID}:1" >> /etc/subgid
 
@@ -243,11 +256,12 @@ usermod -aG docker "${USERNAME}"
 # su - starts a fresh session, so the new group membership is already in effect
 # and this stands in for the post's "log out and back in again".
 su - "${USERNAME}" -c 'docker run --rm hello-world' >/dev/null
+docker rmi -f hello-world >/dev/null 2>&1 || true
 echo "    docker works as ${USERNAME}"
 EOF
 }
 
-# Post: "Set up a shared group for file permissions" (steps 1 and 2)
+# Post: "Set up a shared group for file permissions"
 create_shared_group() {
   log "Creating shared group for file permissions"
   in_ct <<EOF
@@ -257,191 +271,30 @@ usermod -aG mediaapps "${USERNAME}"
 EOF
 }
 
-# Post: "Set up a shared group for file permissions" step 3 — this one runs on
-# the HOST, not in the LXC. The top of the pool belongs to the host's root user
-# and an unprivileged container can't chgrp it. Numeric GID, because the
-# mediaapps name only exists inside the container.
-own_pool_on_host() {
-  log "Handing $POOL to group $PGID (on the host)"
-  chgrp -R "$PGID" "$POOL"
-  # The leading 2 is the setgid bit: without it new files get the creating
-  # container's primary group instead of mediaapps.
-  chmod -R 2775 "$POOL"
-}
-
-# The post reboots here, because it edits the conf file on a container that's
-# already running. This script writes the idmap before the first start, so the
-# map is live from boot one and there's nothing to reboot into — all that's
-# left is to check the pool actually came through.
-verify_mount() {
-  log "Checking the pool is mounted inside the LXC"
-  pct exec "$CTID" -- test -d "$MOUNT" \
-    || die "$MOUNT not mounted inside the LXC — check the mp0 line in $CONF"
-  echo "    $MOUNT present"
-}
-
-# Post: "Docker Compose"
-write_compose() {
-  log "Writing compose.yaml"
-
-  local compose; compose="$(mktemp)"
-  # Quoted marker: nothing in here is expanded by the host shell, so the
-  # container's own values survive intact.
-  cat > "$compose" <<'YAML'
-services:
-  jackett:
-    image: lscr.io/linuxserver/jackett:latest
-    container_name: jackett
-    environment:
-      - PUID=__PUID__
-      - PGID=__PGID__
-      - UMASK=002
-      - TZ=__TZ__
-    volumes:
-      - __MOUNT__/config-jackett:/config
-      - __MOUNT__:/data
-    ports:
-      - 9117:9117
-    restart: unless-stopped
-    networks:
-      - arrs
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=__PUID__
-      - PGID=__PGID__
-      - UMASK=002
-      - TZ=__TZ__
-    volumes:
-      - __MOUNT__/config-sonarr:/config
-      - __MOUNT__:/data
-    ports:
-      - 8989:8989
-    restart: unless-stopped
-    networks:
-      - arrs
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      - PUID=__PUID__
-      - PGID=__PGID__
-      - UMASK=002
-      - TZ=__TZ__
-    volumes:
-      - __MOUNT__/config-radarr:/config
-      - __MOUNT__:/data
-    ports:
-      - 7878:7878
-    restart: unless-stopped
-    networks:
-      - arrs
-  sabnzbd:
-    image: lscr.io/linuxserver/sabnzbd:latest
-    container_name: sabnzbd
-    environment:
-      - PUID=__PUID__
-      - PGID=__PGID__
-      - UMASK=002
-      - TZ=__TZ__
-    volumes:
-      - __MOUNT__/config-sabnzbd:/config
-      - __MOUNT__:/data
-    ports:
-      - 8080:8080
-    restart: unless-stopped
-    networks:
-      - arrs
-  transmission:
-    image: lscr.io/linuxserver/transmission:latest
-    container_name: transmission
-    environment:
-      - PUID=__PUID__
-      - PGID=__PGID__
-      - UMASK=002
-      - TZ=__TZ__
-      - USER=admin
-      - PASS=__TRANSMISSION_PASS__
-    volumes:
-      - __MOUNT__/config-transmission:/config
-      - __MOUNT__:/data
-    ports:
-      - 9091:9091
-      - 51413:51413
-      - 51413:51413/udp
-    restart: unless-stopped
-    networks:
-      - arrs
-  unpackerr:
-    image: golift/unpackerr
-    volumes:
-      - __MOUNT__:/data
-    user: __PUID__:__PGID__
-    environment:
-      - TZ=__TZ__
-      - UN_QUIET=false
-      - UN_DEBUG=false
-      - UN_ERROR_STDERR=false
-      - UN_LOG_QUEUES=1m
-      - UN_LOG_FILES=10
-      - UN_LOG_FILE_MB=10
-      - UN_INTERVAL=2m
-      - UN_START_DELAY=1m
-      - UN_RETRY_DELAY=5m
-      - UN_MAX_RETRIES=3
-      - UN_PARALLEL=1
-      - UN_FILE_MODE=0644
-      - UN_DIR_MODE=0755
-      - UN_ACTIVITY=false
-      - UN_SONARR_0_URL=http://sonarr:8989
-      - UN_SONARR_0_API_KEY=PUT-SONARR-API-KEY-HERE
-      - UN_RADARR_0_URL=http://radarr:7878
-      - UN_RADARR_0_API_KEY=PUT-RADARR-API-KEY-HERE
-    restart: unless-stopped
-    networks:
-      - arrs
-networks:
-  arrs: null
-YAML
-
-  # Substituted with bash expansion rather than sed, because a password is
-  # allowed to contain the characters sed would treat as delimiters. The
-  # replacements are quoted because bash 5.2+ expands a bare & in a
-  # substitution to the text that matched, which would eat a password like
-  # "a&b".
-  local body; body="$(cat "$compose")"
-  body="${body//__PUID__/"$PUID"}"
-  body="${body//__PGID__/"$PGID"}"
-  body="${body//__TZ__/"$CT_TZ"}"
-  body="${body//__MOUNT__/"$MOUNT"}"
-  body="${body//__TRANSMISSION_PASS__/"$TRANSMISSION_PASS"}"
-  printf '%s\n' "$body" > "$compose"
-
-  # The API keys stay as placeholders on purpose — Sonarr and Radarr don't mint
-  # them until they've started. See the manual steps at the end.
-  note_manual "Unpackerr: copy the API keys from Sonarr and Radarr (Settings > General > API Key) into UN_SONARR_0_API_KEY / UN_RADARR_0_API_KEY in ~${USERNAME}/compose.yaml, then re-run 'docker compose up -d'. It restart-loops until they're valid."
-
-  pct push "$CTID" "$compose" "/home/${USERNAME}/compose.yaml" --perms 600 >/dev/null
-  rm -f "$compose"
-  pct exec "$CTID" -- chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}/compose.yaml"
-}
-
-bring_up_stack() {
-  log "Bringing up the stack"
-  in_ct <<EOF
+# Post: "Turn it into a template"
+make_template() {
+  log "Cleaning up and shutting down"
+  in_ct <<'EOF'
 set -euo pipefail
-su - "${USERNAME}" -c 'cd ~ && docker compose up -d'
+apt-get clean
+# Empty, not deleted: systemd writes a fresh ID into it on each clone's first
+# boot, but only if the file exists.
+truncate -s 0 /etc/machine-id
 EOF
 
-  # Post: "Point the apps at the right paths" — these are first-run settings in
-  # each app's own web UI, with no CLI to drive them.
-  local ip="${LXC_IP%%/*}"
-  note_manual "Sonarr (http://${ip}:8989) > Media Management > Root Folder = /data/tv"
-  note_manual "Radarr (http://${ip}:7878) > Media Management > Root Folder = /data/movies"
-  note_manual "SABnzbd (http://${ip}:8080) > Folders > Temporary Download Folder = /data/downloads/incomplete, Completed = /data/downloads/complete"
-  note_manual "Transmission (http://${ip}:9091, log in as admin) > Edit Preferences > Download to = /data/downloads, and untick 'Use temporary folder'"
-  note_manual "Jackett (http://${ip}:9117) > add your indexers, then add Jackett to Sonarr/Radarr"
+  pct shutdown "$CTID"
+  for _ in $(seq 1 60); do
+    pct status "$CTID" | grep -q stopped && break
+    sleep 1
+  done
+
+  if [[ "$MAKE_TEMPLATE" != "1" ]]; then
+    echo "    MAKE_TEMPLATE=0, leaving CT $CTID as a stopped container"
+    return
+  fi
+
+  log "Converting CT $CTID to a template"
+  pct template "$CTID"
 }
 
 # -------------------------------------------------------------------- RUN ---
@@ -452,19 +305,22 @@ main() {
   create_container
   map_user_ids
   start_container
-  verify_mount
   create_user
   install_docker
   create_shared_group
-  own_pool_on_host
-  write_compose
-  bring_up_stack
+  make_template
+
+  note_manual "Part 5 clones this image: assets/building-a-home-server-pt5/setup.sh, or by hand with 'pct clone ${CTID} 101 --hostname arrs --full 1'"
 
   log "Done."
-  printf '\nLXC %s is up at %s\n' "$CTID" "${LXC_IP%%/*}"
+  if [[ "$MAKE_TEMPLATE" == "1" ]]; then
+    printf '\nCT %s is now a template. It can be cloned, not started.\n' "$CTID"
+  else
+    printf '\nCT %s is built and stopped, ready to clone.\n' "$CTID"
+  fi
 
   if ((${#MANUAL_STEPS[@]})); then
-    printf '\nStill to do by hand (each app configures itself through its own web UI):\n'
+    printf '\nStill to do:\n'
     printf '  - %s\n' "${MANUAL_STEPS[@]}"
     printf '\n'
   fi
