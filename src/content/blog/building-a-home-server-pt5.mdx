@@ -242,7 +242,7 @@ Until they're filled in, unpackerr just restarts in a loop. Drop them into the `
 Transmission needs a password to use as the web UI login. Put it in `PASS`.
 
 ## The media server
-Container `102` is the media player. It mounts the same volume `/media-tank` as the *arrs. This allows Radarr / Sonarr
+Container `102` is for the media player. It mounts the same volume `/media-tank` as the *arrs. This allows Radarr / Sonarr
 to put the media in the folder monitored by the media player. The result is that when a download is complete, the media
 will appear in the media server right away.
 
@@ -250,7 +250,7 @@ The one thing the media server needs is access to the GPU to perform transcoding
 
 ### Pass the GPU through
 The QuickSync GPU appears in Linux as a 'render node' at `/dev/dri/renderD128`. You can see it's a special type of 
-device by running `ls -la /dev/dri`. 
+device by running `ls -la /dev/dri` and it will start with a c for **c**haracter device.
 
 ```bash
 pct set 102 --dev0 /dev/dri/renderD128,gid=1005,mode=0660
@@ -264,10 +264,7 @@ pct exec 102 -- ls -l /dev/dri
 # crw-rw---- 1 root mediaapps 226, 128 ... renderD128
 ```
 
-### Run it
-Grab a claim token from [plex.tv/claim](https://www.plex.tv/claim) first — it ties the new server to your account,
-and it expires after four minutes, so do it just before you bring the container up.
-
+### Deploy it
 Create `~/compose.yaml` inside container `102`:
 
 ```yaml
@@ -299,13 +296,13 @@ cd ~ && docker compose up -d
 doesn't survive being NATed through Docker's bridge. It's the one service here that gets the container's network
 directly.
 
-Open `http://192.168.1.89:32400/web` and add the libraries, pointing them at the same paths the *arrs write to:
+Open http://192.168.1.89:32400/web and it will walk you through the process to set up the server. It will make you sign in
+with a Plex account at https://plex.tv. Afterward it'll redirect back to http://192.168.1.89:32400/ and prompt you
+to add some libraries.  Point them at the same paths the *arrs write to:
 
 | Library type | Path           |
 |--------------|----------------|
 | Movies       | `/data/movies` |
 | TV Shows     | `/data/tv`     |
 
-Then turn transcoding on: **Settings → Transcoder → Use hardware acceleration when available**. Play something,
-force a lower quality, and check the dashboard — the transcode session should be labelled `(hw)`. If it isn't, the
-GPU isn't reaching the container and `ls -l /dev/dri` inside the LXC is the place to start.
+Then turn transcoding on: **Settings → Transcoder → Use hardware acceleration when available**.
