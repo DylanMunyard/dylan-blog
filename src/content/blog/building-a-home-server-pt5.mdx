@@ -49,9 +49,9 @@ lands owned by `nobody`.
 </Callout>
 
 ## Mount the ZFS pool
-Proxmox requires passing through mount points on the host to the LXC via explicit approval. 
-Run the following to mount the ZFS pool `/media-tank` to `/media-data` inside the LXC. 
-The ZFS pool was created in [link to the pst where we created the media-tank ZFS pool]
+Proxmox requires passing through mount points on the host to the LXC via explicit approval.
+Run the following to mount the ZFS pool `/media-tank` to `/media-data` inside the LXC.
+The ZFS pool was created in [Part 2](/posts/building-a-home-server-pt2).
 
 ```bash
 pct set 101 --mp0 /media-tank,mp=/media-data
@@ -60,10 +60,11 @@ pct set 102 --mp0 /media-tank,mp=/media-data
 
 Then hand ownership of the pool to the shared group, and set the setgid bit so anything created underneath it
 inherits the group automatically. This one runs **on the Proxmox host**, against `/media-tank` — the top of the pool
-belongs to the host's root user, and an unprivileged LXC can't change it. Use the number `1005` which is the user ID
-set up in [link to part 4]
+belongs to the host's root user, and an unprivileged LXC can't change it. Use the number `1005` which is the group ID
+set up in [Part 4](/posts/building-a-home-server-pt4).
 
 ```bash
+chown -R 1000 /media-tank
 chgrp -R 1005 /media-tank
 chmod -R 2775 /media-tank
 ```
@@ -71,15 +72,16 @@ chmod -R 2775 /media-tank
 The leading `2` in `2775` is the setgid bit — without it, new files created by a container would get that
 container's own primary group instead of `mediaapps` (the name of the group used by the Docker containers – see below).
 
-Start them both and check the mount landed:
+Start them both and check the mount point exists:
 
 ```bash
 pct start 101
 pct start 102
-pct exec 101 -- ls -ld /media-data   # should be owned by 1000:mediaapps, not nobody
+pct exec 101 -- ls -ld /media-data   # drwxrwsr-x ... dylan mediaapps
 ```
 
-If that shows `nobody`, the ID map didn't come across with the clone — go back and check the conf file.
+If either half shows up as `nobody` or `nogroup`, the ID map didn't come across with the clone — go back and check
+the conf file.
 
 ## The *arrs
 <Callout kind="info" title="From now on ..">
@@ -87,9 +89,9 @@ Run the following inside container `101`, logged in as your non-root user
 </Callout>
 
 Docker compose lets you manage multiple containers declaratively in a single file. It has some handy features that make
-it simple for the different apps to reach each other. 
+it simple for the different apps to reach each other.
 
-To manage the compose file, you run `docker compose up -f compose.yaml` and it starts the containers. 
+To manage the compose file, you run `docker compose -f compose.yaml up` and it starts the containers.
 
 Create `~/compose.yaml` and paste the following (`nano ~/compose.yaml`). This is the Docker compose stack that runs
 all the *arrs and download clients.
@@ -210,7 +212,6 @@ services:
       - arrs
 networks:
   arrs: null
-
 ```
 
 Bring the whole stack up:
@@ -235,21 +236,21 @@ Everything lives under `/data` inside the containers, so use these paths when yo
 | Transmission | Edit Preferences > Uncheck "Use temporary folder" |                              |
 
 Unpackerr needs the API keys from Sonarr and Radarr, found under **Settings → General → API Key** in each app.
-Drop them into the `UN_SONARR_0_API_KEY` and `UN_RADARR_0_API_KEY` placeholders above and run `docker compose up -d`
-again — it'll restart in a loop until they're valid.
+Until they're filled in, unpackerr just restarts in a loop. Drop them into the `UN_SONARR_0_API_KEY` and
+`UN_RADARR_0_API_KEY` placeholders above and run `docker compose up -d` again to pick them up.
 
-Transmission needs a password set to use as the web UI login. Set `PASS` to set the UI password.
+Transmission needs a password to use as the web UI login. Put it in `PASS`.
 
 ## The media server
 Container `102` is the media player. It mounts the same volume `/media-tank` as the *arrs. This allows Radarr / Sonarr
 to put the media in the folder monitored by the media player. The result is that when a download is complete, the media
 will appear in the media server right away.
 
-The one thing the media server needs is access to the GPU to perform transcoding. This is where Intel Qync will be used.
+The one thing the media server needs is access to the GPU to perform transcoding. This is where Intel Quick Sync will be used.
 
 ### Pass the GPU through
-The render node lives at `/dev/dri/renderD128` on the host. Add it to the container's config, owned by the shared
-group so the app can open it. On the Proxmox host:
+The QuickSync GPU appears in Linux as a 'render node' at `/dev/dri/renderD128`. You can see it's a special type of 
+device by running `ls -la /dev/dri`. 
 
 ```bash
 pct set 102 --dev0 /dev/dri/renderD128,gid=1005,mode=0660
@@ -259,23 +260,9 @@ pct reboot 102
 Check it arrived, inside container `102`:
 
 ```bash
-ls -l /dev/dri
+pct exec 102 -- ls -l /dev/dri
 # crw-rw---- 1 root mediaapps 226, 128 ... renderD128
 ```
-
-If the group shows as `nogroup` instead of `mediaapps`, the ID map isn't doing its job — same fix as above.
-
-<Callout kind="info" title="On older Proxmox">
-`dev0` is the modern device passthrough syntax. If your Proxmox doesn't have it, the equivalent is two raw lines in
-`/etc/pve/lxc/102.conf`:
-
-```bash
-lxc.cgroup2.devices.allow: c 226:128 rwm
-lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
-```
-
-`226` is the DRM major number; `128` is the first render node. Check yours with `ls -l /dev/dri` on the host.
-</Callout>
 
 ### Run it
 Grab a claim token from [plex.tv/claim](https://www.plex.tv/claim) first — it ties the new server to your account,
@@ -314,10 +301,10 @@ directly.
 
 Open `http://192.168.1.89:32400/web` and add the libraries, pointing them at the same paths the *arrs write to:
 
-| Library type | Path          |
-|--------------|---------------|
-| Movies       | `/data/movies`|
-| TV Shows     | `/data/tv`    |
+| Library type | Path           |
+|--------------|----------------|
+| Movies       | `/data/movies` |
+| TV Shows     | `/data/tv`     |
 
 Then turn transcoding on: **Settings → Transcoder → Use hardware acceleration when available**. Play something,
 force a lower quality, and check the dashboard — the transcode session should be labelled `(hw)`. If it isn't, the

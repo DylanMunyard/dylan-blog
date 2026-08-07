@@ -110,7 +110,11 @@ clone_ct() {
 # rather than trust that, assert the block on each clone — it's the same
 # idempotent write as Part 4 and it costs nothing when it's already right.
 assert_idmap() {
-  local ctid="$1" conf="/etc/pve/lxc/${ctid}.conf"
+  # Split, not `local ctid="$1" conf="...${ctid}..."` — bash expands every word
+  # of the command before `local` runs, so ctid would still be unset there and
+  # `set -u` would kill the script.
+  local ctid="$1"
+  local conf="/etc/pve/lxc/${ctid}.conf"
 
   local block
   block="$(cat <<EOF
@@ -154,7 +158,14 @@ mount_pool() {
 # unprivileged container can't chgrp it. Numeric GID, because the mediaapps
 # name only exists inside the containers.
 own_pool_on_host() {
-  log "Handing $POOL to group $PGID (on the host)"
+  log "Handing $POOL to ${PUID}:${PGID} (on the host)"
+  # The chown is not cosmetic. Docker creates the bind-mount source directories
+  # (/media-data/config-*) as root, and in an unprivileged container root only
+  # holds CAP_DAC_OVERRIDE over files whose uid and gid are both mapped into the
+  # namespace. Left owned by the host's root the pool is unmapped, "other" is
+  # r-x, and every compose up dies with "mkdir /media-data/config-x: permission
+  # denied". Owned by PUID it is mapped, and root can create them.
+  chown -R "$PUID" "$POOL"
   chgrp -R "$PGID" "$POOL"
   # The leading 2 is the setgid bit: without it new files get the creating
   # container's primary group instead of mediaapps.
@@ -171,8 +182,21 @@ pass_through_gpu() {
     note_manual "No render node at $RENDER_NODE on the host, so the media server will transcode on CPU. Check 'ls -l /dev/dri' and set RENDER_NODE."
     return
   fi
+  if ! pct help set 2>&1 | grep -q -- '--dev\['; then
+    warn "Proxmox older than 8.2 — no --dev option, skipping GPU passthrough"
+    note_manual "'pct set --dev0' needs Proxmox 8.2 or newer. Either upgrade, or add the lxc.cgroup2.devices.allow and lxc.mount.entry lines to /etc/pve/lxc/${ctid}.conf by hand — see the 'On older Proxmox' note in the post."
+    return
+  fi
   log "Passing $RENDER_NODE through to CT $ctid"
   pct set "$ctid" --dev0 "${RENDER_NODE},gid=${PGID},mode=0660"
+
+  # Device nodes are only created when the container starts. On a first run the
+  # container is still stopped and start_ct picks this up, but on a re-run it is
+  # already up and the change sits under [pve:pending] until it is restarted.
+  if pct status "$ctid" | grep -q running; then
+    log "CT $ctid is running — restarting it so the device node gets created"
+    pct reboot "$ctid"
+  fi
 }
 
 start_ct() {
@@ -188,12 +212,18 @@ start_ct() {
   pct exec "$ctid" -- test -d "$MOUNT" \
     || die "$MOUNT not mounted inside CT $ctid — check the mp0 line in its conf"
 
-  # An unmapped container shows the pool as nobody/nogroup, and every app would
+  # An unmapped container shows the pool's group as nogroup, and every app would
   # fail to write. Catch it here rather than three web UIs later.
+  #
+  # Only the group is checked. own_pool_on_host chgrps but never chowns, so the
+  # pool's user stays host root — and container root maps to 100000, outside the
+  # container's range, so a correctly mapped mount still reads as "nobody:
+  # mediaapps". The group is what the apps write through (that plus the setgid
+  # bit), so the group is what has to resolve.
   local owner
   owner="$(pct exec "$ctid" -- stat -c '%U:%G' "$MOUNT")"
   case "$owner" in
-    nobody:*|*:nogroup)
+    *:nogroup)
       die "$MOUNT is owned by $owner inside CT $ctid — the idmap isn't taking effect" ;;
     *) echo "    $MOUNT owned by $owner" ;;
   esac
